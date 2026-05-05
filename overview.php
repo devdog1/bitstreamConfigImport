@@ -88,7 +88,19 @@ require_once 'config.php';
                         <pre id="sourceInfoPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
                     </div>
                     <div class="tab-pane fade" id="tabNotifications">
-                        <pre id="notificationsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
+                        <div class="table-responsive" style="max-height: 500px; overflow: auto;">
+                            <table class="table table-sm table-striped table-hover">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="width: 180px;">Time</th>
+                                        <th style="width: 100px;">Type</th>
+                                        <th style="width: 150px;">Title</th>
+                                        <th>Message</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="notificationsTableBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                     <div class="tab-pane fade" id="tabSourceReports">
                         <pre id="sourceReportsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
@@ -158,7 +170,7 @@ require_once 'config.php';
     async function viewDetails(serverKey, streamId, streamName) {
         document.getElementById('detailsModalTitle').textContent = `Stream Details: ${streamName}`;
         document.getElementById('sourceInfoPre').textContent = 'Loading...';
-        document.getElementById('notificationsPre').textContent = 'Loading...';
+        document.getElementById('notificationsTableBody').innerHTML = '<tr><td colspan="4" class="text-center">Loading...</td></tr>';
         document.getElementById('sourceReportsPre').textContent = 'Loading...';
         document.getElementById('noPlaybackMsg').classList.add('d-none');
 
@@ -169,8 +181,32 @@ require_once 'config.php';
             const data = await response.json();
 
             document.getElementById('sourceInfoPre').textContent = JSON.stringify(data.source_info, null, 2);
-            document.getElementById('notificationsPre').textContent = JSON.stringify(data.notifications, null, 2);
             document.getElementById('sourceReportsPre').textContent = JSON.stringify(data.source_reports, null, 2);
+
+            // Render Notifications Table
+            const nBody = document.getElementById('notificationsTableBody');
+            nBody.innerHTML = "";
+            const nList = (data.notifications && data.notifications.data && data.notifications.data.list) ? data.notifications.data.list : [];
+
+            if (nList.length === 0) {
+                nBody.innerHTML = '<tr><td colspan="4" class="text-center">No notifications found.</td></tr>';
+            } else {
+                nList.forEach(n => {
+                    const tr = document.createElement("tr");
+
+                    const typeBadge = n.type === 'error' ? '<span class="badge bg-danger">Error</span>' :
+                                    (n.type === 'warning' ? '<span class="badge bg-warning text-dark">Warning</span>' :
+                                    `<span class="badge bg-info">${n.type}</span>`);
+
+                    tr.innerHTML = `
+                        <td class="small text-nowrap">${n.created_at}</td>
+                        <td>${typeBadge}</td>
+                        <td class="fw-bold">${n.title}</td>
+                        <td class="small">${n.message}</td>
+                    `;
+                    nBody.appendChild(tr);
+                });
+            }
 
             // Find Playback URLs
             let urls = { hls: null, dash: null };
@@ -202,7 +238,7 @@ require_once 'config.php';
 
         } catch (e) {
             document.getElementById('sourceInfoPre').textContent = 'Error loading details: ' + e;
-            document.getElementById('notificationsPre').textContent = 'Error loading details: ' + e;
+            document.getElementById('notificationsTableBody').innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error: ${e}</td></tr>`;
             document.getElementById('sourceReportsPre').textContent = 'Error loading details: ' + e;
         }
     }
