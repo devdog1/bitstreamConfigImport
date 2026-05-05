@@ -153,6 +153,12 @@ function apiCall($url, $tokenId, $tokenSecret, $method = 'GET', $payload = null)
             curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
             $headers[] = "Content-Type: application/json";
         }
+    } elseif ($method === 'PUT') {
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
+        if ($payload) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+            $headers[] = "Content-Type: application/json";
+        }
     }
 
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);

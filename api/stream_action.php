@@ -26,11 +26,9 @@ $tokenId = $server['token_id'];
 $tokenSecret = $server['token_secret'];
 
 function performAction($action, $protocol, $address, $stream_id, $tokenId, $tokenSecret) {
-    // In Bitstreams v3, stream status is controlled by a POST to the stream endpoint with a status payload.
-    // status: 1 = start, 0 = stop
-    $url = "{$protocol}://{$address}/api/v3/streams/{$stream_id}/";
-    $status = ($action === 'start') ? 1 : 0;
-    return apiCall($url, $tokenId, $tokenSecret, 'POST', json_encode(['status' => $status]));
+    // Bitstreams API uses PUT to /api/v3/streams/{id}/start/ or /api/v3/streams/{id}/stop/
+    $url = "{$protocol}://{$address}/api/v3/streams/{$stream_id}/{$action}/";
+    return apiCall($url, $tokenId, $tokenSecret, 'PUT');
 }
 
 if ($action === "restart") {
