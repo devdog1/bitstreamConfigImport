@@ -95,16 +95,17 @@ require_once 'config.php';
                 </div>
                 <div id="template_details" class="mb-3 small"></div>
                 <div class="mb-3">
-                    <label for="multicast" class="form-label">Multicast IP (232.x.x.x)</label>
-                    <input id="multicast" class="form-control" placeholder="232.x.x.x">
+                    <label for="multicast" class="form-label">Base Multicast IP (232.x.x.x)</label>
+                    <input id="multicast" class="form-control" placeholder="232.x.x.x" onchange="refreshOutputUrls()">
                 </div>
+                <div id="output_urls_container" class="mb-3"></div>
                 <div class="mb-3">
                     <label for="region" class="form-label">Region</label>
                     <input id="region" class="form-control" value="<?= htmlspecialchars($CONFIG['default_region']) ?>">
                 </div>
                 <div class="mb-3">
                     <label for="local_addr" class="form-label">Local Interface Address</label>
-                    <input id="local_addr" class="form-control" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>">
+                    <input id="local_addr" class="form-control" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>" onchange="refreshOutputUrls()">
                 </div>
             </div>
             <div class="modal-footer">
@@ -235,6 +236,39 @@ require_once 'config.php';
         importModal.show();
     }
 
+    function refreshOutputUrls() {
+        const select = document.getElementById("template");
+        const templateId = parseInt(select.value);
+        const container = document.getElementById("output_urls_container");
+        const baseIp = document.getElementById("multicast").value || "232.0.0.1";
+        const localAddr = document.getElementById("local_addr").value;
+
+        if (!templateId) {
+            container.innerHTML = "";
+            return;
+        }
+
+        const template = currentTemplates.find(t => t.id === templateId);
+        if (!template || !template.output || !template.output.video) {
+            container.innerHTML = "";
+            return;
+        }
+
+        const numRenditions = template.output.video.length;
+        let html = '<label class="form-label">Output URLs</label>';
+        for (let i = 0; i < numRenditions; i++) {
+            const port = 3001 + i;
+            const url = `udp://${baseIp}:${port}?localaddr=${localAddr}`;
+            html += `
+                <div class="input-group mb-2">
+                    <span class="input-group-text">#${i + 1}</span>
+                    <input type="text" class="form-control output-url-input" value="${url}">
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
     function showTemplateDetails() {
         const select = document.getElementById("template");
         const detailsDiv = document.getElementById("template_details");
@@ -242,6 +276,7 @@ require_once 'config.php';
 
         if (!templateId) {
             detailsDiv.innerHTML = "";
+            refreshOutputUrls();
             return;
         }
 
@@ -273,6 +308,8 @@ require_once 'config.php';
 
         html += '</div></div>';
         detailsDiv.innerHTML = html;
+
+        refreshOutputUrls();
     }
 
     function onServerChange() {
@@ -281,6 +318,7 @@ require_once 'config.php';
 
         if (option && option.dataset.localaddr) {
             document.getElementById("local_addr").value = option.dataset.localaddr;
+            refreshOutputUrls();
         }
 
         fetchTemplates();
@@ -355,17 +393,14 @@ require_once 'config.php';
         let local_addr = document.getElementById("local_addr").value;
 
         payload.regions = [region];
+        const outputUrlInputs = document.querySelectorAll(".output-url-input");
+        const outputUrls = Array.from(outputUrlInputs).map(input => input.value);
+
         payload.playbacks.forEach(p => {
             p.template_id = template;
             if (p.output_type == "multicast") {
                 p.output_urls[0].region = region;
-                p.output_urls[0].urls = [
-                    `udp://${multicast}:3001?localaddr=${local_addr}`,
-                    `udp://${multicast}:3002?localaddr=${local_addr}`,
-                    `udp://${multicast}:3003?localaddr=${local_addr}`,
-                    `udp://${multicast}:3004?localaddr=${local_addr}`,
-                    `udp://${multicast}:3005?localaddr=${local_addr}`
-                ];
+                p.output_urls[0].urls = outputUrls;
             }
         });
 
