@@ -68,6 +68,9 @@ require_once 'config.php';
                     <li class="nav-item">
                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabEvents">Events</button>
                     </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSourceReports">Source Reports</button>
+                    </li>
                 </ul>
                 <div class="tab-content">
                     <div class="tab-pane fade show active" id="tabSourceInfo">
@@ -75,6 +78,9 @@ require_once 'config.php';
                     </div>
                     <div class="tab-pane fade" id="tabEvents">
                         <pre id="eventsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
+                    </div>
+                    <div class="tab-pane fade" id="tabSourceReports">
+                        <pre id="sourceReportsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
                     </div>
                 </div>
             </div>
@@ -134,6 +140,7 @@ require_once 'config.php';
         document.getElementById('detailsModalTitle').textContent = `Stream Details: ${streamName}`;
         document.getElementById('sourceInfoPre').textContent = 'Loading...';
         document.getElementById('eventsPre').textContent = 'Loading...';
+        document.getElementById('sourceReportsPre').textContent = 'Loading...';
         detailsModal.show();
 
         try {
@@ -142,9 +149,11 @@ require_once 'config.php';
 
             document.getElementById('sourceInfoPre').textContent = JSON.stringify(data.source_info, null, 2);
             document.getElementById('eventsPre').textContent = JSON.stringify(data.events, null, 2);
+            document.getElementById('sourceReportsPre').textContent = JSON.stringify(data.source_reports, null, 2);
         } catch (e) {
             document.getElementById('sourceInfoPre').textContent = 'Error loading details: ' + e;
             document.getElementById('eventsPre').textContent = 'Error loading details: ' + e;
+            document.getElementById('sourceReportsPre').textContent = 'Error loading details: ' + e;
         }
     }
 

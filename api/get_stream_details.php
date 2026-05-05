@@ -22,8 +22,10 @@ $baseUrl = "{$protocol}://{$address}/api/v3/streams/{$streamId}/";
 
 $events = apiCall($baseUrl . "events/", $tokenId, $tokenSecret);
 $sourceInfo = apiCall($baseUrl . "source_info/", $tokenId, $tokenSecret);
+$sourceReports = apiCall($baseUrl . "source_reports/", $tokenId, $tokenSecret);
 
 echo json_encode([
     "events" => json_decode($events['response'], true),
-    "source_info" => json_decode($sourceInfo['response'], true)
+    "source_info" => json_decode($sourceInfo['response'], true),
+    "source_reports" => json_decode($sourceReports['response'], true)
 ]);
