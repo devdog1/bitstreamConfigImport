@@ -58,82 +58,90 @@ require_once 'config.php';
 
 <!-- Import Modal -->
 <div class="modal fade" id="importModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Import to Bitstreams</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label for="server_select" class="form-label">Bitstreams Server</label>
-                    <select id="server_select" class="form-select" onchange="onServerChange()">
-                        <option value="">Select a server...</option>
-                        <?php foreach ($CONFIG['servers'] as $key => $server): ?>
-                            <option value="<?= htmlspecialchars($key) ?>"
-                                    data-localaddr="<?= htmlspecialchars($server['localaddr'] ?? $CONFIG['localaddr']) ?>">
-                                <?= htmlspecialchars($server['name']) ?> (<?= htmlspecialchars($server['address']) ?>)
-                            </option>
-                        <?php endforeach; ?>
-                        <option value="custom" data-localaddr="<?= htmlspecialchars($CONFIG['localaddr']) ?>">Custom Address...</option>
-                    </select>
-                </div>
-                <div id="custom_server_div" class="d-none">
-                    <div class="mb-3">
-                        <label for="protocol_custom" class="form-label">Protocol</label>
-                        <select id="protocol_custom" class="form-select" onchange="fetchTemplates()">
-                            <option value="http">HTTP</option>
-                            <option value="https">HTTPS</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="server_custom" class="form-label">Custom Server Address</label>
-                        <input id="server_custom" class="form-control" placeholder="e.g., 10.0.0.1:8080" onchange="fetchTemplates()">
-                    </div>
-                    <div class="mb-3">
-                        <label for="token_id_custom" class="form-label">Token ID</label>
-                        <input id="token_id_custom" class="form-control" onchange="fetchTemplates()">
-                    </div>
-                    <div class="mb-3">
-                        <label for="token_secret_custom" class="form-label">Token Secret</label>
-                        <input id="token_secret_custom" class="form-control" type="password" onchange="fetchTemplates()">
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="template" class="form-label">Select Template</label>
-                    <select id="template" class="form-select" onchange="showTemplateDetails()"></select>
-                </div>
-                <div id="template_details" class="mb-3 small"></div>
-                <div class="mb-3">
-                    <label for="multicast" class="form-label">Base Multicast IP (232.x.x.x)</label>
-                    <input id="multicast" class="form-control" placeholder="232.x.x.x" onchange="refreshOutputUrls()">
-                </div>
-                <div id="output_urls_container" class="mb-3"></div>
-
-                <hr>
-                <div class="mb-3">
-                    <label class="form-label fw-bold">PID Remapping</label>
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <label for="pid_pmt" class="form-label small">PMT PID</label>
-                            <input id="pid_pmt" class="form-control form-control-sm" value="1906">
+                <div class="row">
+                    <div class="col-lg-6 border-end">
+                        <div class="mb-3">
+                            <label for="server_select" class="form-label fw-bold">Bitstreams Server</label>
+                            <select id="server_select" class="form-select" onchange="onServerChange()">
+                                <option value="">Select a server...</option>
+                                <?php foreach ($CONFIG['servers'] as $key => $server): ?>
+                                    <option value="<?= htmlspecialchars($key) ?>"
+                                            data-localaddr="<?= htmlspecialchars($server['localaddr'] ?? $CONFIG['localaddr']) ?>">
+                                        <?= htmlspecialchars($server['name']) ?> (<?= htmlspecialchars($server['address']) ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                                <option value="custom" data-localaddr="<?= htmlspecialchars($CONFIG['localaddr']) ?>">Custom Address...</option>
+                            </select>
                         </div>
-                        <div class="col-6">
-                            <label for="pid_video" class="form-label small">Video PID</label>
-                            <input id="pid_video" class="form-control form-control-sm" value="400">
+                        <div id="custom_server_div" class="d-none bg-light p-2 mb-3 rounded border">
+                            <div class="mb-2">
+                                <label for="protocol_custom" class="form-label small">Protocol</label>
+                                <select id="protocol_custom" class="form-select form-select-sm" onchange="fetchTemplates()">
+                                    <option value="http">HTTP</option>
+                                    <option value="https">HTTPS</option>
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <label for="server_custom" class="form-label small">Custom Server Address</label>
+                                <input id="server_custom" class="form-control form-control-sm" placeholder="e.g., 10.0.0.1:8080" onchange="fetchTemplates()">
+                            </div>
+                            <div class="mb-2">
+                                <label for="token_id_custom" class="form-label small">Token ID</label>
+                                <input id="token_id_custom" class="form-control form-control-sm" onchange="fetchTemplates()">
+                            </div>
+                            <div class="mb-2">
+                                <label for="token_secret_custom" class="form-label small">Token Secret</label>
+                                <input id="token_secret_custom" class="form-control form-control-sm" type="password" onchange="fetchTemplates()">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="template" class="form-label fw-bold">Select Template</label>
+                            <select id="template" class="form-select" onchange="showTemplateDetails()"></select>
+                        </div>
+                        <div id="template_details" class="mb-3 small"></div>
+                        <div class="mb-3">
+                            <label for="region" class="form-label fw-bold">Region</label>
+                            <input id="region" class="form-control" value="<?= htmlspecialchars($CONFIG['default_region']) ?>">
                         </div>
                     </div>
-                    <div id="audio_pids_container"></div>
-                </div>
-                <hr>
+                    <div class="col-lg-6">
+                        <div class="bg-primary-subtle p-3 rounded mb-3 border border-primary-subtle">
+                            <label class="form-label fw-bold">Output URLs</label>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label for="multicast" class="form-label small">Base Multicast IP</label>
+                                    <input id="multicast" class="form-control form-control-sm" placeholder="232.x.x.x" onchange="refreshOutputUrls()">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="local_addr" class="form-label small">Local Interface Address</label>
+                                    <input id="local_addr" class="form-control form-control-sm" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>" onchange="refreshOutputUrls()">
+                                </div>
+                            </div>
+                            <div id="output_urls_container"></div>
+                        </div>
 
-                <div class="mb-3">
-                    <label for="region" class="form-label">Region</label>
-                    <input id="region" class="form-control" value="<?= htmlspecialchars($CONFIG['default_region']) ?>">
-                </div>
-                <div class="mb-3">
-                    <label for="local_addr" class="form-label">Local Interface Address</label>
-                    <input id="local_addr" class="form-control" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>" onchange="refreshOutputUrls()">
+                        <div class="bg-secondary-subtle p-3 rounded border border-secondary-subtle">
+                            <label class="form-label fw-bold">PID Remapping</label>
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <label for="pid_pmt" class="form-label small">PMT PID</label>
+                                    <input id="pid_pmt" class="form-control form-control-sm" value="1906">
+                                </div>
+                                <div class="col-6">
+                                    <label for="pid_video" class="form-label small">Video PID</label>
+                                    <input id="pid_video" class="form-control form-control-sm" value="400">
+                                </div>
+                            </div>
+                            <div id="audio_pids_container"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
