@@ -9,6 +9,7 @@ require_once 'config.php';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Stream Overview - Bitstreams Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
 
@@ -28,9 +29,9 @@ require_once 'config.php';
         <button class="btn btn-outline-primary" onclick="loadStreams()">Refresh Status</button>
     </div>
 
-    <div class="card">
+    <div class="card p-3">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table id="streamsTable" class="table table-hover mb-0">
                 <thead class="table-light">
                     <tr>
                         <th>Name</th>
@@ -40,13 +41,7 @@ require_once 'config.php';
                     </tr>
                 </thead>
                 <tbody id="streamsTableBody">
-                    <tr>
-                        <td colspan="4" class="text-center p-5">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                        </td>
-                    </tr>
+                    <!-- Data loaded via AJAX -->
                 </tbody>
             </table>
         </div>
@@ -111,9 +106,14 @@ require_once 'config.php';
     </div>
 </div>
 
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
 <script>
     const detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+    let dataTable = null;
 
     // Reset player when modal is closed
     document.getElementById('detailsModal').addEventListener('hidden.bs.modal', () => {
@@ -124,10 +124,12 @@ require_once 'config.php';
     });
 
     async function loadStreams() {
-        const tbody = document.getElementById("streamsTableBody");
-        if (tbody.innerHTML.trim() === "") {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center p-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+        if (dataTable) {
+            dataTable.destroy();
         }
+
+        const tbody = document.getElementById("streamsTableBody");
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center p-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
 
         try {
             const response = await fetch("api/list_all_streams.php");
@@ -137,31 +139,36 @@ require_once 'config.php';
 
             if (streams.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center">No streams found on configured servers.</td></tr>';
-                return;
+            } else {
+                streams.forEach(stream => {
+                    const tr = document.createElement("tr");
+
+                    const statusBadge = stream.status === 'active'
+                        ? '<span class="badge bg-success">Active</span>'
+                        : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
+
+                    const actions = `
+                        <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
+                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
+                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
+                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
+                    `;
+
+                    tr.innerHTML = `
+                        <td class="align-middle fw-bold">${stream.name}</td>
+                        <td class="align-middle">${statusBadge}</td>
+                        <td class="align-middle">${stream.server_name}</td>
+                        <td class="align-middle">${actions}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
 
-            streams.forEach(stream => {
-                const tr = document.createElement("tr");
-
-                const statusBadge = stream.status === 'active'
-                    ? '<span class="badge bg-success">Active</span>'
-                    : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
-
-                const actions = `
-                    <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
-                    <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
-                    <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
-                    <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
-                `;
-
-                tr.innerHTML = `
-                    <td class="align-middle fw-bold">${stream.name}</td>
-                    <td class="align-middle">${statusBadge}</td>
-                    <td class="align-middle">${stream.server_name}</td>
-                    <td class="align-middle">${actions}</td>
-                `;
-                tbody.appendChild(tr);
+            dataTable = $('#streamsTable').DataTable({
+                "pageLength": 25,
+                "order": [[0, "asc"]]
             });
+
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error loading streams: ${e}</td></tr>`;
         }
@@ -177,21 +184,25 @@ require_once 'config.php';
         detailsModal.show();
 
         try {
-            const response = await fetch(`api/get_stream_details.php?server_key=${serverKey}&stream_id=${streamId}`);
+            const response = await fetch(`api/get_stream_details.php?server_key=${serverKey}&stream_id=${streamId}&page=1&limit=50`);
             const data = await response.json();
 
-            document.getElementById('sourceInfoPre').textContent = JSON.stringify(data.source_info, null, 2);
-            document.getElementById('sourceReportsPre').textContent = JSON.stringify(data.source_reports, null, 2);
+            const streamData = data.stream;
+            const sourceInfo = data.source_info;
+            const sourceReports = data.source_reports;
+            const notificationsList = (data.notifications && data.notifications.data && data.notifications.data.list) ? data.notifications.data.list : [];
+
+            document.getElementById('sourceInfoPre').textContent = JSON.stringify(sourceInfo, null, 2);
+            document.getElementById('sourceReportsPre').textContent = JSON.stringify(sourceReports, null, 2);
 
             // Render Notifications Table
             const nBody = document.getElementById('notificationsTableBody');
             nBody.innerHTML = "";
-            const nList = (data.notifications && data.notifications.data && data.notifications.data.list) ? data.notifications.data.list : [];
 
-            if (nList.length === 0) {
+            if (notificationsList.length === 0) {
                 nBody.innerHTML = '<tr><td colspan="4" class="text-center">No notifications found.</td></tr>';
             } else {
-                nList.forEach(n => {
+                notificationsList.forEach(n => {
                     const tr = document.createElement("tr");
 
                     const typeBadge = n.type === 'error' ? '<span class="badge bg-danger">Error</span>' :
@@ -210,10 +221,10 @@ require_once 'config.php';
 
             // Find Playback URLs
             let urls = { hls: null, dash: null };
-            const streamData = (data.stream && data.stream.data) ? data.stream.data : null;
+            const sData = (streamData && streamData.data) ? streamData.data : null;
 
-            if (streamData && streamData.playbacks) {
-                const httpPlayback = streamData.playbacks.find(p => p.output_type === 'http' || p.output_type === 'hls');
+            if (sData && sData.playbacks) {
+                const httpPlayback = sData.playbacks.find(p => p.output_type === 'http' || p.output_type === 'hls');
                 if (httpPlayback) {
                     if (httpPlayback.hls_url) urls.hls = httpPlayback.hls_url;
                     if (httpPlayback.dash_url) urls.dash = httpPlayback.dash_url;

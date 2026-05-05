@@ -5,6 +5,8 @@ header("Content-Type: application/json");
 
 $serverKey = $_GET['server_key'] ?? '';
 $streamId = $_GET['stream_id'] ?? '';
+$page = $_GET['page'] ?? 1;
+$limit = $_GET['limit'] ?? 25;
 
 if (!$serverKey || !$streamId || !isset($CONFIG['servers'][$serverKey])) {
     http_response_code(400);
@@ -21,7 +23,7 @@ $tokenSecret = $server['token_secret'];
 $baseUrl = "{$protocol}://{$address}/api/v3/streams/{$streamId}/";
 
 $stream = apiCall($baseUrl, $tokenId, $tokenSecret);
-$notifications = apiCall("{$protocol}://{$address}/api/v3/notifications/?stream_id={$streamId}", $tokenId, $tokenSecret);
+$notifications = apiCall("{$protocol}://{$address}/api/v3/notifications/?stream_id={$streamId}&page={$page}&limit={$limit}", $tokenId, $tokenSecret);
 $sourceInfo = apiCall($baseUrl . "source_info/", $tokenId, $tokenSecret);
 $sourceReports = apiCall($baseUrl . "source_reports/", $tokenId, $tokenSecret);
 
