@@ -163,3 +163,47 @@ function apiCall($url, $tokenId, $tokenSecret, $method = 'GET', $payload = null)
 
     return ['code' => $code, 'response' => $response];
 }
+
+/**
+ * Fetches all streams by handling API pagination.
+ */
+function fetchAllStreams($baseUrl, $tokenId, $tokenSecret)
+{
+    $allStreams = [];
+    $page = 1;
+    $pageSize = 100;
+
+    while (true) {
+        $separator = str_contains($baseUrl, '?') ? '&' : '?';
+        $url = "{$baseUrl}{$separator}page={$page}&page_size={$pageSize}";
+
+        $result = apiCall($url, $tokenId, $tokenSecret);
+
+        if ($result['code'] < 200 || $result['code'] >= 300) {
+            break;
+        }
+
+        $data = json_decode($result['response'], true);
+        $list = $data['data']['list'] ?? [];
+
+        if (empty($list)) {
+            break;
+        }
+
+        foreach ($list as $item) {
+            $allStreams[] = $item;
+        }
+
+        if (count($list) < $pageSize) {
+            break;
+        }
+
+        $page++;
+
+        if ($page > 500) { // Safety break
+            break;
+        }
+    }
+
+    return $allStreams;
+}

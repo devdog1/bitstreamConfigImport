@@ -17,17 +17,12 @@ foreach ($CONFIG['servers'] as $key => $server) {
     $tokenId = $server['token_id'];
     $tokenSecret = $server['token_secret'];
 
-    $result = apiCall("{$protocol}://{$address}/api/v3/streams/", $tokenId, $tokenSecret);
+    $streams = fetchAllStreams("{$protocol}://{$address}/api/v3/streams/", $tokenId, $tokenSecret);
 
-    if ($result['code'] >= 200 && $result['code'] < 300) {
-        $data = json_decode($result['response'], true);
-        if (isset($data['data']['list'])) {
-            foreach ($data['data']['list'] as $stream) {
-                $stream['server_name'] = $server['name'];
-                $stream['server_key'] = $key;
-                $all_streams[] = $stream;
-            }
-        }
+    foreach ($streams as $stream) {
+        $stream['server_name'] = $server['name'];
+        $stream['server_key'] = $key;
+        $all_streams[] = $stream;
     }
 }
 
