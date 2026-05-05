@@ -31,5 +31,6 @@ if ($server_key === "custom") {
     exit;
 }
 
-$result = apiCall("{$protocol}://{$address}/api/v3/streams", $tokenId, $tokenSecret, 'POST', $payload);
+// Added trailing slash to avoid 307 redirects
+$result = apiCall("{$protocol}://{$address}/api/v3/streams/", $tokenId, $tokenSecret, 'POST', $payload);
 echo json_encode($result);

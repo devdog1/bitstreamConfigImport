@@ -136,6 +136,8 @@ function apiCall($url, $tokenId, $tokenSecret, $method = 'GET', $payload = null)
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_POSTREDIR, 3); // 3 = Follow POST with POST on 301, 302, and 307 redirects
 
     // Support HTTPS without cert validation for ease of use in local networks
     if (str_starts_with($url, 'https')) {
