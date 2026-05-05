@@ -125,8 +125,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label for="server" class="form-label">Bitstreams Server</label>
-                    <input id="server" class="form-control" placeholder="e.g., 10.0.0.1:8080">
+                    <label for="server_select" class="form-label">Bitstreams Server</label>
+                    <select id="server_select" class="form-select" onchange="fetchTemplates()">
+                        <option value="">Select a server...</option>
+                        <?php foreach ($CONFIG['servers'] as $name => $address): ?>
+                            <option value="<?= htmlspecialchars($address) ?>"><?= htmlspecialchars($name) ?> (<?= htmlspecialchars($address) ?>)</option>
+                        <?php endforeach; ?>
+                        <option value="custom">Custom Address...</option>
+                    </select>
+                </div>
+                <div class="mb-3 d-none" id="custom_server_div">
+                    <label for="server_custom" class="form-label">Custom Server Address</label>
+                    <input id="server_custom" class="form-control" placeholder="e.g., 10.0.0.1:8080" onchange="fetchTemplates()">
                 </div>
                 <div class="mb-3">
                     <label for="template" class="form-label">Select Template</label>
@@ -147,7 +157,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="submitImport()">Create Session</button>
+                <button type="button" class="btn btn-primary" onclick="submitImport(event)">Create Session</button>
             </div>
         </div>
     </div>
@@ -163,21 +173,39 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
     }
 
     async function openImport(index) {
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
-
         currentJSON = JSON.parse(document.getElementById("json" + index).innerText);
-        let server = prompt("Bitstreams server (host:port):", document.getElementById("server").value || "");
 
-        if (!server) {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-            return;
+        let currentIP = currentJSON.playbacks[1].output_urls[0].urls[0].match(/udp:\/\/([^:]+)/)[1];
+        document.getElementById("multicast").value = currentIP;
+
+        if (!importModal) {
+            importModal = new bootstrap.Modal(document.getElementById('importModal'));
         }
 
-        document.getElementById("server").value = server;
+        // Reset server select
+        document.getElementById("server_select").value = "";
+        document.getElementById("custom_server_div").classList.add("d-none");
+        document.getElementById("template").innerHTML = "<option>Select a server first...</option>";
+
+        importModal.show();
+    }
+
+    async function fetchTemplates() {
+        const select = document.getElementById("server_select");
+        const customDiv = document.getElementById("custom_server_div");
+        const templateSelect = document.getElementById("template");
+
+        let server = select.value;
+        if (server === "custom") {
+            customDiv.classList.remove("d-none");
+            server = document.getElementById("server_custom").value;
+        } else {
+            customDiv.classList.add("d-none");
+        }
+
+        if (!server) return;
+
+        templateSelect.innerHTML = "<option>Loading templates...</option>";
 
         let form = new FormData();
         form.append("api_templates", 1);
@@ -188,34 +216,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
             let templates = await response.json();
 
             if (!Array.isArray(templates)) {
-                throw new Error("Invalid response from server. Check credentials and server address.");
+                throw new Error("Invalid response from server.");
             }
 
-            let select = document.getElementById("template");
-            select.innerHTML = "";
+            templateSelect.innerHTML = "";
             templates.forEach(t => {
                 let option = document.createElement("option");
                 option.value = t.id;
                 option.innerHTML = t.name;
-                select.appendChild(option);
+                templateSelect.appendChild(option);
             });
-
-            let currentIP = currentJSON.playbacks[1].output_urls[0].urls[0].match(/udp:\/\/([^:]+)/)[1];
-            document.getElementById("multicast").value = currentIP;
-
-            if (!importModal) {
-                importModal = new bootstrap.Modal(document.getElementById('importModal'));
-            }
-            importModal.show();
         } catch (e) {
-            alert("Error: " + e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+            templateSelect.innerHTML = "<option>Error loading templates</option>";
+            console.error(e);
         }
     }
 
-    async function submitImport() {
+    async function submitImport(event) {
         const btn = event.target;
         const originalText = btn.innerHTML;
         btn.disabled = true;
@@ -225,7 +242,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
         let template = parseInt(document.getElementById("template").value);
         let multicast = document.getElementById("multicast").value;
         let region = document.getElementById("region").value;
-        let server = document.getElementById("server").value;
+        let select = document.getElementById("server_select");
+        let server = select.value === "custom" ? document.getElementById("server_custom").value : select.value;
         let local_addr = document.getElementById("local_addr").value;
 
         payload.regions = [region];
