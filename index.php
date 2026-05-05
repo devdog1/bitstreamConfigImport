@@ -345,11 +345,27 @@ require_once 'config.php';
         try {
             let response = await fetch("api/push.php", { method: "POST", body: form });
             let result = await response.json();
+
             if (result.code >= 200 && result.code < 300) {
-                alert("Session created successfully.");
-                importModal.hide();
+                // Parse the inner response from the Bitstreams server
+                let bsResponse = {};
+                try {
+                    bsResponse = JSON.parse(result.response);
+                } catch(e) {}
+
+                if (bsResponse.err_code === 0) {
+                    alert("Session created successfully.");
+                    importModal.hide();
+                } else {
+                    alert("Error: " + (bsResponse.err_message || "Session creation failed."));
+                }
             } else {
-                alert("Error: " + (result.response || "Unknown error"));
+                let bsResponse = {};
+                try {
+                    bsResponse = JSON.parse(result.response);
+                } catch(e) {}
+
+                alert("Error: " + (bsResponse.err_message || result.response || "Unknown error"));
             }
         } catch (e) {
             alert("Request failed: " + e);
