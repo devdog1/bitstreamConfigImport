@@ -9,7 +9,6 @@ require_once 'config.php';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Stream Overview - Bitstreams Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
 </head>
 <body class="bg-light">
 
@@ -70,7 +69,7 @@ require_once 'config.php';
                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSourceInfo">Source Info</button>
                     </li>
                     <li class="nav-item">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabEvents">Events</button>
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabNotifications">Notifications</button>
                     </li>
                     <li class="nav-item">
                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabSourceReports">Source Reports</button>
@@ -88,8 +87,8 @@ require_once 'config.php';
                     <div class="tab-pane fade" id="tabSourceInfo">
                         <pre id="sourceInfoPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
                     </div>
-                    <div class="tab-pane fade" id="tabEvents">
-                        <pre id="eventsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
+                    <div class="tab-pane fade" id="tabNotifications">
+                        <pre id="notificationsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
                     </div>
                     <div class="tab-pane fade" id="tabSourceReports">
                         <pre id="sourceReportsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
@@ -102,19 +101,13 @@ require_once 'config.php';
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    shaka.polyfill.installAll();
     const detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
-    let activePlayer = null;
 
     // Reset player when modal is closed
-    document.getElementById('detailsModal').addEventListener('hidden.bs.modal', async () => {
-        if (activePlayer) {
-            await activePlayer.destroy();
-            activePlayer = null;
-        }
+    document.getElementById('detailsModal').addEventListener('hidden.bs.modal', () => {
         const video = document.getElementById('videoPlayer');
         video.pause();
-        video.src = "";
+        video.innerHTML = "";
         video.load();
     });
 
@@ -165,14 +158,9 @@ require_once 'config.php';
     async function viewDetails(serverKey, streamId, streamName) {
         document.getElementById('detailsModalTitle').textContent = `Stream Details: ${streamName}`;
         document.getElementById('sourceInfoPre').textContent = 'Loading...';
-        document.getElementById('eventsPre').textContent = 'Loading...';
+        document.getElementById('notificationsPre').textContent = 'Loading...';
         document.getElementById('sourceReportsPre').textContent = 'Loading...';
         document.getElementById('noPlaybackMsg').classList.add('d-none');
-
-        if (activePlayer) {
-            await activePlayer.destroy();
-            activePlayer = null;
-        }
 
         detailsModal.show();
 
@@ -181,78 +169,63 @@ require_once 'config.php';
             const data = await response.json();
 
             document.getElementById('sourceInfoPre').textContent = JSON.stringify(data.source_info, null, 2);
-            document.getElementById('eventsPre').textContent = JSON.stringify(data.events, null, 2);
+            document.getElementById('notificationsPre').textContent = JSON.stringify(data.notifications, null, 2);
             document.getElementById('sourceReportsPre').textContent = JSON.stringify(data.source_reports, null, 2);
 
-            // Find HLS URL, avoiding AC3 audio
-            let hlsUrl = null;
+            // Find Playback URLs
+            let urls = { hls: null, dash: null };
             const streamData = (data.stream && data.stream.data) ? data.stream.data : null;
-            const templates = (data.templates && data.templates.data && data.templates.data.list) ? data.templates.data.list : [];
 
             if (streamData && streamData.playbacks) {
-                // Filter playbacks to find those that are NOT using AC3
-                const validPlaybacks = streamData.playbacks.filter(p => {
-                    if (p.output_type !== 'http' && p.output_type !== 'hls') return false;
-
-                    // Find associated template
-                    const template = templates.find(t => t.id === p.template_id);
-                    const audioParams = (template && template.output && template.output.audio) ? template.output.audio : [];
-                    if (audioParams.length > 0) {
-                        // Check if any audio rendition uses AC3
-                        const hasAC3 = audioParams.some(a =>
-                            a.codec && (
-                                a.codec.toUpperCase().includes('AC3') ||
-                                a.codec.toUpperCase().includes('AC-3') ||
-                                a.codec.toUpperCase().includes('DOLBY')
-                            )
-                        );
-                        if (hasAC3) return false;
-                    }
-                    return true;
-                });
-
-                const httpPlayback = validPlaybacks[0]; // Take the first non-AC3 HTTP playback
-
+                const httpPlayback = streamData.playbacks.find(p => p.output_type === 'http' || p.output_type === 'hls');
                 if (httpPlayback) {
-                    if (httpPlayback.hls_url) {
-                        hlsUrl = httpPlayback.hls_url;
-                    } else if (httpPlayback.output_urls && httpPlayback.output_urls.length > 0) {
-                        const urlObj = httpPlayback.output_urls.find(u => u.urls && u.urls.some(url => url.includes('.m3u8')));
-                        if (urlObj) {
-                            hlsUrl = urlObj.urls.find(url => url.includes('.m3u8'));
-                        }
+                    if (httpPlayback.hls_url) urls.hls = httpPlayback.hls_url;
+                    if (httpPlayback.dash_url) urls.dash = httpPlayback.dash_url;
+
+                    if (httpPlayback.output_urls) {
+                        httpPlayback.output_urls.forEach(uo => {
+                            if (!uo.urls) return;
+                            uo.urls.forEach(url => {
+                                if (url.includes('.m3u8')) urls.hls = url;
+                                if (url.includes('.mpd')) urls.dash = url;
+                            });
+                        });
                     }
                 }
             }
 
-            if (hlsUrl) {
-                initPlayer(hlsUrl);
+            if (urls.hls || urls.dash) {
+                initPlayer(urls);
             } else {
                 document.getElementById('noPlaybackMsg').classList.remove('d-none');
             }
 
         } catch (e) {
             document.getElementById('sourceInfoPre').textContent = 'Error loading details: ' + e;
-            document.getElementById('eventsPre').textContent = 'Error loading details: ' + e;
+            document.getElementById('notificationsPre').textContent = 'Error loading details: ' + e;
             document.getElementById('sourceReportsPre').textContent = 'Error loading details: ' + e;
         }
     }
 
-    async function initPlayer(manifestUri) {
+    function initPlayer(urls) {
         const video = document.getElementById('videoPlayer');
-        const player = new shaka.Player(video);
-        activePlayer = player;
+        video.innerHTML = ""; // Clear sources
 
-        player.addEventListener('error', (event) => {
-            console.error('Error code', event.detail.code, 'object', event.detail);
-        });
-
-        try {
-            await player.load(manifestUri);
-            console.log('The video has now been loaded!');
-        } catch (e) {
-            console.error('Error loading manifest', e);
+        if (urls.dash) {
+            const source = document.createElement('source');
+            source.src = urls.dash;
+            source.type = "application/dash+xml";
+            video.appendChild(source);
         }
+
+        if (urls.hls) {
+            const source = document.createElement('source');
+            source.src = urls.hls;
+            source.type = "application/x-mpegURL";
+            video.appendChild(source);
+        }
+
+        video.load();
     }
 
     async function streamAction(serverKey, streamId, action) {
