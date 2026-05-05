@@ -57,15 +57,25 @@ require_once 'config.php';
             <div class="modal-body">
                 <div class="mb-3">
                     <label for="server_select" class="form-label">Bitstreams Server</label>
-                    <select id="server_select" class="form-select" onchange="fetchTemplates()">
+                    <select id="server_select" class="form-select" onchange="onServerChange()">
                         <option value="">Select a server...</option>
                         <?php foreach ($CONFIG['servers'] as $key => $server): ?>
-                            <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($server['name']) ?> (<?= htmlspecialchars($server['address']) ?>)</option>
+                            <option value="<?= htmlspecialchars($key) ?>"
+                                    data-localaddr="<?= htmlspecialchars($server['localaddr'] ?? $CONFIG['localaddr']) ?>">
+                                <?= htmlspecialchars($server['name']) ?> (<?= htmlspecialchars($server['address']) ?>)
+                            </option>
                         <?php endforeach; ?>
-                        <option value="custom">Custom Address...</option>
+                        <option value="custom" data-localaddr="<?= htmlspecialchars($CONFIG['localaddr']) ?>">Custom Address...</option>
                     </select>
                 </div>
                 <div id="custom_server_div" class="d-none">
+                    <div class="mb-3">
+                        <label for="protocol_custom" class="form-label">Protocol</label>
+                        <select id="protocol_custom" class="form-select" onchange="fetchTemplates()">
+                            <option value="http">HTTP</option>
+                            <option value="https">HTTPS</option>
+                        </select>
+                    </div>
                     <div class="mb-3">
                         <label for="server_custom" class="form-label">Custom Server Address</label>
                         <input id="server_custom" class="form-control" placeholder="e.g., 10.0.0.1:8080" onchange="fetchTemplates()">
@@ -123,6 +133,15 @@ require_once 'config.php';
         const form = document.getElementById("generateForm");
         const formData = new FormData(form);
 
+        // Pass the current selected server to generate sessions with correct localaddr
+        const serverSelect = document.getElementById("server_select");
+        if (serverSelect.value) {
+            formData.append("server_key", serverSelect.value);
+            if (serverSelect.value === "custom") {
+                formData.append("custom_localaddr", document.getElementById("local_addr").value);
+            }
+        }
+
         try {
             const response = await fetch("api/generate.php", { method: "POST", body: formData });
             sessions = await response.json();
@@ -154,7 +173,6 @@ require_once 'config.php';
             const tabId = `tab${i}`;
             const btnId = `tab-btn-${i}`;
 
-            // Tab button
             const li = document.createElement("li");
             li.className = "nav-item";
             li.role = "presentation";
@@ -170,7 +188,6 @@ require_once 'config.php';
             li.appendChild(btn);
             tabs.appendChild(li);
 
-            // Tab content
             const pane = document.createElement("div");
             pane.className = `tab-pane fade ${i === 0 ? 'show active' : ''}`;
             pane.id = tabId;
@@ -216,6 +233,17 @@ require_once 'config.php';
         importModal.show();
     }
 
+    function onServerChange() {
+        const select = document.getElementById("server_select");
+        const option = select.options[select.selectedIndex];
+
+        if (option && option.dataset.localaddr) {
+            document.getElementById("local_addr").value = option.dataset.localaddr;
+        }
+
+        fetchTemplates();
+    }
+
     async function fetchTemplates() {
         const select = document.getElementById("server_select");
         const customDiv = document.getElementById("custom_server_div");
@@ -236,6 +264,7 @@ require_once 'config.php';
         form.append("server_key", serverKey);
 
         if (serverKey === "custom") {
+            form.append("custom_protocol", document.getElementById("protocol_custom").value);
             form.append("custom_address", document.getElementById("server_custom").value);
             form.append("custom_token_id", document.getElementById("token_id_custom").value);
             form.append("custom_token_secret", document.getElementById("token_secret_custom").value);
@@ -290,7 +319,6 @@ require_once 'config.php';
             }
         });
 
-        // Also update input urls localaddr
         payload.input_urls.forEach(iu => {
             iu.region = region;
             iu.urls = iu.urls.map(url => url.replace(/localaddr=[^&]+/, `localaddr=${local_addr}`));
@@ -301,6 +329,7 @@ require_once 'config.php';
         form.append("payload", JSON.stringify(payload));
 
         if (serverKey === "custom") {
+            form.append("custom_protocol", document.getElementById("protocol_custom").value);
             form.append("custom_address", document.getElementById("server_custom").value);
             form.append("custom_token_id", document.getElementById("token_id_custom").value);
             form.append("custom_token_secret", document.getElementById("token_secret_custom").value);

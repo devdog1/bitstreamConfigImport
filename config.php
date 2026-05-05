@@ -13,8 +13,10 @@ $CONFIG = [
         'default' => [
             'name' => 'Default Server',
             'address' => '127.0.0.1:8080',
+            'protocol' => 'http',
             'token_id' => 'YOUR_TOKEN_ID',
             'token_secret' => 'YOUR_TOKEN_SECRET',
+            'localaddr' => '172.17.233.130',
         ],
     ],
 ];

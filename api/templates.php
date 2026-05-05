@@ -11,14 +11,17 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 $server_key = $_POST["server_key"] ?? "";
 $custom_address = $_POST["custom_address"] ?? "";
+$custom_protocol = $_POST["custom_protocol"] ?? "http";
 
 if ($server_key === "custom") {
     $address = $custom_address;
+    $protocol = $custom_protocol;
     $tokenId = $_POST["custom_token_id"] ?? "";
     $tokenSecret = $_POST["custom_token_secret"] ?? "";
 } elseif (isset($CONFIG['servers'][$server_key])) {
     $server = $CONFIG['servers'][$server_key];
     $address = $server['address'];
+    $protocol = $server['protocol'] ?? 'http';
     $tokenId = $server['token_id'];
     $tokenSecret = $server['token_secret'];
 } else {
@@ -31,5 +34,5 @@ if (empty($address)) {
     exit;
 }
 
-$result = apiCall("http://{$address}/api/v3/templates", $tokenId, $tokenSecret);
+$result = apiCall("{$protocol}://{$address}/api/v3/templates", $tokenId, $tokenSecret);
 echo $result['response'];

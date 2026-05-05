@@ -59,11 +59,11 @@ function parseChannels($text)
     return $channels;
 }
 
-function generateSession($channel)
+function generateSession($channel, $serverConfig = null)
 {
     global $CONFIG;
     $out = $channel["out"] ?: "232.0.0.1";
-    $localaddr = $CONFIG['localaddr'];
+    $localaddr = $serverConfig['localaddr'] ?? $CONFIG['localaddr'];
 
     $json = [
         "capture_card_input" => [
@@ -136,6 +136,12 @@ function apiCall($url, $tokenId, $tokenSecret, $method = 'GET', $payload = null)
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    // Support HTTPS without cert validation for ease of use in local networks
+    if (str_starts_with($url, 'https')) {
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+    }
 
     $headers = ["Authorization: Basic " . bsAuth($tokenId, $tokenSecret)];
 

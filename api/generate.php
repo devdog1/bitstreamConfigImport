@@ -11,6 +11,16 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 $sessions = [];
 $backup_content = $_POST["backup"] ?? "";
+$server_key = $_POST["server_key"] ?? "";
+
+$serverConfig = null;
+if (isset($CONFIG['servers'][$server_key])) {
+    $serverConfig = $CONFIG['servers'][$server_key];
+} elseif ($server_key === "custom") {
+    $serverConfig = [
+        'localaddr' => $_POST["custom_localaddr"] ?? $CONFIG['localaddr']
+    ];
+}
 
 if (isset($_FILES["backup_file"]) && $_FILES["backup_file"]["error"] == UPLOAD_ERR_OK) {
     $backup_content = file_get_contents($_FILES["backup_file"]["tmp_name"]);
@@ -24,7 +34,7 @@ if (!empty($backup_content)) {
         }
         $sessions[] = [
             "name" => $channel["name"],
-            "json" => generateSession($channel)
+            "json" => generateSession($channel, $serverConfig)
         ];
     }
 }
