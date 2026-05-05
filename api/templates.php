@@ -34,5 +34,6 @@ if (empty($address)) {
     exit;
 }
 
-$result = apiCall("{$protocol}://{$address}/api/v3/templates", $tokenId, $tokenSecret);
+// Updated path to /api/v3/template/
+$result = apiCall("{$protocol}://{$address}/api/v3/template/", $tokenId, $tokenSecret);
 echo $result['response'];

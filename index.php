@@ -272,14 +272,21 @@ require_once 'config.php';
 
         try {
             let response = await fetch("api/templates.php", { method: "POST", body: form });
-            let templates = await response.json();
+            let result = await response.json();
 
-            if (!Array.isArray(templates)) {
-                throw new Error("Invalid response from server.");
+            // Handle the new nested response format
+            let list = [];
+            if (result && result.data && Array.isArray(result.data.list)) {
+                list = result.data.list;
+            } else if (Array.isArray(result)) {
+                // Fallback for old format if necessary
+                list = result;
+            } else {
+                throw new Error("Invalid response format from server.");
             }
 
             templateSelect.innerHTML = "";
-            templates.forEach(t => {
+            list.forEach(t => {
                 let option = document.createElement("option");
                 option.value = t.id;
                 option.textContent = t.name;
