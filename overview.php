@@ -53,10 +53,41 @@ require_once 'config.php';
     </div>
 </div>
 
+<div class="modal fade" id="detailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailsModalTitle">Stream Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabSourceInfo">Source Info</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabEvents">Events</button>
+                    </li>
+                </ul>
+                <div class="tab-content">
+                    <div class="tab-pane fade show active" id="tabSourceInfo">
+                        <pre id="sourceInfoPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
+                    </div>
+                    <div class="tab-pane fade" id="tabEvents">
+                        <pre id="eventsPre" class="bg-dark text-white p-3 rounded" style="max-height: 500px; overflow: auto;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    const detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+
     async function loadStreams() {
         const tbody = document.getElementById("streamsTableBody");
-        // Keep some space if we already have content or show loading
         if (tbody.innerHTML.trim() === "") {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center p-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
         }
@@ -80,6 +111,7 @@ require_once 'config.php';
                     : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
 
                 const actions = `
+                    <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
                     <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
                     <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
                     <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
@@ -95,6 +127,24 @@ require_once 'config.php';
             });
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error loading streams: ${e}</td></tr>`;
+        }
+    }
+
+    async function viewDetails(serverKey, streamId, streamName) {
+        document.getElementById('detailsModalTitle').textContent = `Stream Details: ${streamName}`;
+        document.getElementById('sourceInfoPre').textContent = 'Loading...';
+        document.getElementById('eventsPre').textContent = 'Loading...';
+        detailsModal.show();
+
+        try {
+            const response = await fetch(`api/get_stream_details.php?server_key=${serverKey}&stream_id=${streamId}`);
+            const data = await response.json();
+
+            document.getElementById('sourceInfoPre').textContent = JSON.stringify(data.source_info, null, 2);
+            document.getElementById('eventsPre').textContent = JSON.stringify(data.events, null, 2);
+        } catch (e) {
+            document.getElementById('sourceInfoPre').textContent = 'Error loading details: ' + e;
+            document.getElementById('eventsPre').textContent = 'Error loading details: ' + e;
         }
     }
 
