@@ -1,92 +1,5 @@
 <?php
-require_once 'functions.php';
-
-/*
-|--------------------------------------------------------------------------
-| Bitstreams Template API
-|--------------------------------------------------------------------------
-*/
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["api_templates"])) {
-    header("Content-Type: application/json");
-
-    $server_key = $_POST["server_key"];
-    $custom_address = $_POST["custom_address"] ?? "";
-
-    if ($server_key === "custom") {
-        $address = $custom_address;
-        $tokenId = $_POST["custom_token_id"] ?? "";
-        $tokenSecret = $_POST["custom_token_secret"] ?? "";
-    } else {
-        $server = $CONFIG['servers'][$server_key];
-        $address = $server['address'];
-        $tokenId = $server['token_id'];
-        $tokenSecret = $server['token_secret'];
-    }
-
-    if (empty($address)) {
-        echo json_encode([]);
-        exit;
-    }
-
-    $result = apiCall("http://{$address}/api/v3/templates", $tokenId, $tokenSecret);
-    echo $result['response'];
-    exit;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Bitstreams Stream Create API
-|--------------------------------------------------------------------------
-*/
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["api_push"])) {
-    header("Content-Type: application/json");
-
-    $server_key = $_POST["server_key"];
-    $custom_address = $_POST["custom_address"] ?? "";
-    $payload = $_POST["payload"];
-
-    if ($server_key === "custom") {
-        $address = $custom_address;
-        $tokenId = $_POST["custom_token_id"] ?? "";
-        $tokenSecret = $_POST["custom_token_secret"] ?? "";
-    } else {
-        $server = $CONFIG['servers'][$server_key];
-        $address = $server['address'];
-        $tokenId = $server['token_id'];
-        $tokenSecret = $server['token_secret'];
-    }
-
-    $result = apiCall("http://{$address}/api/v3/streams", $tokenId, $tokenSecret, 'POST', $payload);
-    echo json_encode($result);
-    exit;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Generate sessions
-|--------------------------------------------------------------------------
-*/
-$sessions = [];
-$backup_content = $_POST["backup"] ?? "";
-
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
-    if (isset($_FILES["backup_file"]) && $_FILES["backup_file"]["error"] == UPLOAD_ERR_OK) {
-        $backup_content = file_get_contents($_FILES["backup_file"]["tmp_name"]);
-    }
-
-    if (!empty($backup_content)) {
-        $channels = parseChannels($backup_content);
-        foreach ($channels as $channel) {
-            if (!$channel["a"] || !$channel["b"]) {
-                continue;
-            }
-            $sessions[] = [
-                "name" => $channel["name"],
-                "json" => generateSession($channel)
-            ];
-        }
-    }
-}
+require_once 'config.php';
 ?>
 
 <!doctype html>
@@ -113,39 +26,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
     <div class="card">
         <div class="card-body">
             <h2>INCA Migration Tool</h2>
-            <form method="post" enctype="multipart/form-data">
+            <form id="generateForm">
                 <div class="mb-3">
                     <label for="backup" class="form-label">INCA Backup XML Content</label>
-                    <textarea name="backup" id="backup" rows="8" class="form-control"><?= htmlspecialchars($backup_content) ?></textarea>
+                    <textarea name="backup" id="backup" rows="8" class="form-control"></textarea>
                 </div>
                 <div class="mb-3">
                     <label for="backup_file" class="form-label">Or upload Backup XML File</label>
                     <input type="file" name="backup_file" id="backup_file" class="form-control">
                 </div>
-                <button type="submit" name="generate" class="btn btn-primary">Generate Sessions</button>
+                <button type="button" onclick="generateSessions()" id="generateBtn" class="btn btn-primary">Generate Sessions</button>
             </form>
         </div>
     </div>
 
-    <?php if (count($sessions)): ?>
-        <ul class="nav nav-tabs mt-4" id="sessionTabs" role="tablist">
-            <?php foreach ($sessions as $i => $session): ?>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link <?= $i == 0 ? 'active' : '' ?>" id="tab-btn-<?= $i ?>" data-bs-toggle="tab" data-bs-target="#tab<?= $i ?>" type="button" role="tab"><?= htmlspecialchars($session["name"]) ?></button>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-
-        <div class="tab-content mt-4" id="sessionTabsContent">
-            <?php foreach ($sessions as $i => $session): ?>
-                <div class="tab-pane fade <?= $i == 0 ? 'show active' : '' ?>" id="tab<?= $i ?>" role="tabpanel">
-                    <button class="btn btn-success me-2" onclick="copyJSON('json<?= $i ?>')">Copy JSON</button>
-                    <button class="btn btn-primary" onclick="openImport(<?= $i ?>)">Add to Bitstreams</button>
-                    <pre id="json<?= $i ?>" class="mt-3"><?= htmlspecialchars($session["json"]) ?></pre>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
+    <div id="sessionsContainer" class="mt-4 d-none">
+        <ul class="nav nav-tabs" id="sessionTabs" role="tablist"></ul>
+        <div class="tab-content mt-4" id="sessionTabsContent"></div>
+    </div>
 </div>
 
 <!-- Import Modal -->
@@ -210,13 +108,98 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
 <script>
     let currentJSON = null;
     let importModal = null;
+    let sessions = [];
 
     function copyJSON(id) {
         navigator.clipboard.writeText(document.getElementById(id).innerText);
     }
 
+    async function generateSessions() {
+        const btn = document.getElementById("generateBtn");
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+
+        const form = document.getElementById("generateForm");
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch("api/generate.php", { method: "POST", body: formData });
+            sessions = await response.json();
+            renderSessions();
+        } catch (e) {
+            alert("Error generating sessions: " + e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
+
+    function renderSessions() {
+        const container = document.getElementById("sessionsContainer");
+        const tabs = document.getElementById("sessionTabs");
+        const content = document.getElementById("sessionTabsContent");
+
+        tabs.innerHTML = "";
+        content.innerHTML = "";
+
+        if (sessions.length === 0) {
+            container.classList.add("d-none");
+            return;
+        }
+
+        container.classList.remove("d-none");
+
+        sessions.forEach((session, i) => {
+            const tabId = `tab${i}`;
+            const btnId = `tab-btn-${i}`;
+
+            // Tab button
+            const li = document.createElement("li");
+            li.className = "nav-item";
+            li.role = "presentation";
+
+            const btn = document.createElement("button");
+            btn.className = `nav-link ${i === 0 ? 'active' : ''}`;
+            btn.id = btnId;
+            btn.setAttribute("data-bs-toggle", "tab");
+            btn.setAttribute("data-bs-target", `#${tabId}`);
+            btn.type = "button";
+            btn.role = "tab";
+            btn.textContent = session.name;
+            li.appendChild(btn);
+            tabs.appendChild(li);
+
+            // Tab content
+            const pane = document.createElement("div");
+            pane.className = `tab-pane fade ${i === 0 ? 'show active' : ''}`;
+            pane.id = tabId;
+            pane.role = "tabpanel";
+
+            const copyBtn = document.createElement("button");
+            copyBtn.className = "btn btn-success me-2";
+            copyBtn.onclick = () => copyJSON(`json${i}`);
+            copyBtn.textContent = "Copy JSON";
+            pane.appendChild(copyBtn);
+
+            const importBtn = document.createElement("button");
+            importBtn.className = "btn btn-primary";
+            importBtn.onclick = () => openImport(i);
+            importBtn.textContent = "Add to Bitstreams";
+            pane.appendChild(importBtn);
+
+            const pre = document.createElement("pre");
+            pre.id = `json${i}`;
+            pre.className = "mt-3";
+            pre.textContent = session.json;
+            pane.appendChild(pre);
+
+            content.appendChild(pane);
+        });
+    }
+
     async function openImport(index) {
-        currentJSON = JSON.parse(document.getElementById("json" + index).innerText);
+        currentJSON = JSON.parse(sessions[index].json);
 
         let currentIP = currentJSON.playbacks[1].output_urls[0].urls[0].match(/udp:\/\/([^:]+)/)[1];
         document.getElementById("multicast").value = currentIP;
@@ -250,7 +233,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
         templateSelect.innerHTML = "<option>Loading templates...</option>";
 
         let form = new FormData();
-        form.append("api_templates", 1);
         form.append("server_key", serverKey);
 
         if (serverKey === "custom") {
@@ -260,7 +242,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
         }
 
         try {
-            let response = await fetch("", { method: "POST", body: form });
+            let response = await fetch("api/templates.php", { method: "POST", body: form });
             let templates = await response.json();
 
             if (!Array.isArray(templates)) {
@@ -271,7 +253,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
             templates.forEach(t => {
                 let option = document.createElement("option");
                 option.value = t.id;
-                option.innerHTML = t.name;
+                option.textContent = t.name;
                 templateSelect.appendChild(option);
             });
         } catch (e) {
@@ -315,7 +297,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
         });
 
         let form = new FormData();
-        form.append("api_push", 1);
         form.append("server_key", serverKey);
         form.append("payload", JSON.stringify(payload));
 
@@ -326,7 +307,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
         }
 
         try {
-            let response = await fetch("", { method: "POST", body: form });
+            let response = await fetch("api/push.php", { method: "POST", body: form });
             let result = await response.json();
             if (result.code >= 200 && result.code < 300) {
                 alert("Session created successfully.");
