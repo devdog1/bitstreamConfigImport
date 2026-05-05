@@ -139,7 +139,16 @@ require_once 'config.php';
                                     <input id="pid_video" class="form-control form-control-sm" value="400">
                                 </div>
                             </div>
-                            <div id="audio_pids_container"></div>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label for="pid_aac" class="form-label small">AAC Audio PID</label>
+                                    <input id="pid_aac" class="form-control form-control-sm" value="483">
+                                </div>
+                                <div class="col-6">
+                                    <label for="pid_ac3" class="form-label small">AC3 Audio PID</label>
+                                    <input id="pid_ac3" class="form-control form-control-sm" value="482">
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -313,7 +322,6 @@ require_once 'config.php';
         if (!templateId) {
             detailsDiv.innerHTML = "";
             refreshOutputUrls();
-            refreshPidFields();
             return;
         }
 
@@ -347,37 +355,6 @@ require_once 'config.php';
         detailsDiv.innerHTML = html;
 
         refreshOutputUrls();
-        refreshPidFields();
-    }
-
-    function refreshPidFields() {
-        const select = document.getElementById("template");
-        const container = document.getElementById("audio_pids_container");
-        const templateId = parseInt(select.value);
-
-        if (!templateId) {
-            container.innerHTML = "";
-            return;
-        }
-
-        const template = currentTemplates.find(t => t.id === templateId);
-        if (!template || !template.output || !template.output.audio) {
-            container.innerHTML = "";
-            return;
-        }
-
-        let html = '<label class="form-label small">Audio PIDs</label>';
-        template.output.audio.forEach((a, i) => {
-            // Default to 483, 482, 481...
-            const defaultPid = 483 - i;
-            html += `
-                <div class="input-group input-group-sm mb-1">
-                    <span class="input-group-text">Audio #${i + 1} (${a.codec})</span>
-                    <input type="text" class="form-control audio-pid-input" data-codec="${a.codec}" value="${defaultPid}">
-                </div>
-            `;
-        });
-        container.innerHTML = html;
     }
 
     function onServerChange() {
@@ -475,7 +452,8 @@ require_once 'config.php';
         // PID Remapping
         const pmtPid = document.getElementById("pid_pmt").value;
         const videoPid = document.getElementById("pid_video").value;
-        const audioPidInputs = document.querySelectorAll(".audio-pid-input");
+        const aacPid = document.getElementById("pid_aac").value;
+        const ac3Pid = document.getElementById("pid_ac3").value;
 
         let mappings = [
             {
@@ -495,30 +473,35 @@ require_once 'config.php';
                 "codec": "*",
                 "mode": "remap",
                 "output_pid": videoPid
-            }
-        ];
-
-        audioPidInputs.forEach((input, i) => {
-            mappings.push({
-                "order": (i + 2).toString(),
+            },
+            {
+                "order": "2",
                 "type": "audio",
                 "lang": "*",
                 "input_pid": "*",
-                "codec": input.dataset.codec || "*",
+                "codec": "aac",
                 "mode": "remap",
-                "output_pid": input.value
-            });
-        });
-
-        mappings.push({
-            "order": "#",
-            "type": "*",
-            "lang": "*",
-            "input_pid": "*",
-            "codec": "*",
-            "mode": "drop",
-            "output_pid": "*"
-        });
+                "output_pid": aacPid
+            },
+            {
+                "order": "3",
+                "type": "audio",
+                "lang": "*",
+                "input_pid": "*",
+                "codec": "ac3",
+                "mode": "remap",
+                "output_pid": ac3Pid
+            },
+            {
+                "order": "#",
+                "type": "*",
+                "lang": "*",
+                "input_pid": "*",
+                "codec": "*",
+                "mode": "drop",
+                "output_pid": "*"
+            }
+        ];
 
         payload.stream_remap = {
             "enabled": true,
