@@ -8,8 +8,27 @@ require_once 'functions.php';
 */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["api_templates"])) {
     header("Content-Type: application/json");
-    $server = trim($_POST["server"]);
-    $result = apiCall("http://{$server}/api/v3/templates");
+
+    $server_key = $_POST["server_key"];
+    $custom_address = $_POST["custom_address"] ?? "";
+
+    if ($server_key === "custom") {
+        $address = $custom_address;
+        $tokenId = $_POST["custom_token_id"] ?? "";
+        $tokenSecret = $_POST["custom_token_secret"] ?? "";
+    } else {
+        $server = $CONFIG['servers'][$server_key];
+        $address = $server['address'];
+        $tokenId = $server['token_id'];
+        $tokenSecret = $server['token_secret'];
+    }
+
+    if (empty($address)) {
+        echo json_encode([]);
+        exit;
+    }
+
+    $result = apiCall("http://{$address}/api/v3/templates", $tokenId, $tokenSecret);
     echo $result['response'];
     exit;
 }
@@ -21,9 +40,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["api_templates"])) {
 */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["api_push"])) {
     header("Content-Type: application/json");
-    $server = trim($_POST["server"]);
+
+    $server_key = $_POST["server_key"];
+    $custom_address = $_POST["custom_address"] ?? "";
     $payload = $_POST["payload"];
-    $result = apiCall("http://{$server}/api/v3/streams", 'POST', $payload);
+
+    if ($server_key === "custom") {
+        $address = $custom_address;
+        $tokenId = $_POST["custom_token_id"] ?? "";
+        $tokenSecret = $_POST["custom_token_secret"] ?? "";
+    } else {
+        $server = $CONFIG['servers'][$server_key];
+        $address = $server['address'];
+        $tokenId = $server['token_id'];
+        $tokenSecret = $server['token_secret'];
+    }
+
+    $result = apiCall("http://{$address}/api/v3/streams", $tokenId, $tokenSecret, 'POST', $payload);
     echo json_encode($result);
     exit;
 }
@@ -128,15 +161,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
                     <label for="server_select" class="form-label">Bitstreams Server</label>
                     <select id="server_select" class="form-select" onchange="fetchTemplates()">
                         <option value="">Select a server...</option>
-                        <?php foreach ($CONFIG['servers'] as $name => $address): ?>
-                            <option value="<?= htmlspecialchars($address) ?>"><?= htmlspecialchars($name) ?> (<?= htmlspecialchars($address) ?>)</option>
+                        <?php foreach ($CONFIG['servers'] as $key => $server): ?>
+                            <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($server['name']) ?> (<?= htmlspecialchars($server['address']) ?>)</option>
                         <?php endforeach; ?>
                         <option value="custom">Custom Address...</option>
                     </select>
                 </div>
-                <div class="mb-3 d-none" id="custom_server_div">
-                    <label for="server_custom" class="form-label">Custom Server Address</label>
-                    <input id="server_custom" class="form-control" placeholder="e.g., 10.0.0.1:8080" onchange="fetchTemplates()">
+                <div id="custom_server_div" class="d-none">
+                    <div class="mb-3">
+                        <label for="server_custom" class="form-label">Custom Server Address</label>
+                        <input id="server_custom" class="form-control" placeholder="e.g., 10.0.0.1:8080" onchange="fetchTemplates()">
+                    </div>
+                    <div class="mb-3">
+                        <label for="token_id_custom" class="form-label">Token ID</label>
+                        <input id="token_id_custom" class="form-control" onchange="fetchTemplates()">
+                    </div>
+                    <div class="mb-3">
+                        <label for="token_secret_custom" class="form-label">Token Secret</label>
+                        <input id="token_secret_custom" class="form-control" type="password" onchange="fetchTemplates()">
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label for="template" class="form-label">Select Template</label>
@@ -195,21 +238,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
         const customDiv = document.getElementById("custom_server_div");
         const templateSelect = document.getElementById("template");
 
-        let server = select.value;
-        if (server === "custom") {
+        let serverKey = select.value;
+        if (serverKey === "custom") {
             customDiv.classList.remove("d-none");
-            server = document.getElementById("server_custom").value;
         } else {
             customDiv.classList.add("d-none");
         }
 
-        if (!server) return;
+        if (!serverKey) return;
 
         templateSelect.innerHTML = "<option>Loading templates...</option>";
 
         let form = new FormData();
         form.append("api_templates", 1);
-        form.append("server", server);
+        form.append("server_key", serverKey);
+
+        if (serverKey === "custom") {
+            form.append("custom_address", document.getElementById("server_custom").value);
+            form.append("custom_token_id", document.getElementById("token_id_custom").value);
+            form.append("custom_token_secret", document.getElementById("token_secret_custom").value);
+        }
 
         try {
             let response = await fetch("", { method: "POST", body: form });
@@ -242,8 +290,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
         let template = parseInt(document.getElementById("template").value);
         let multicast = document.getElementById("multicast").value;
         let region = document.getElementById("region").value;
-        let select = document.getElementById("server_select");
-        let server = select.value === "custom" ? document.getElementById("server_custom").value : select.value;
+        let serverKey = document.getElementById("server_select").value;
         let local_addr = document.getElementById("local_addr").value;
 
         payload.regions = [region];
@@ -269,8 +316,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["generate"])) {
 
         let form = new FormData();
         form.append("api_push", 1);
-        form.append("server", server);
+        form.append("server_key", serverKey);
         form.append("payload", JSON.stringify(payload));
+
+        if (serverKey === "custom") {
+            form.append("custom_address", document.getElementById("server_custom").value);
+            form.append("custom_token_id", document.getElementById("token_id_custom").value);
+            form.append("custom_token_secret", document.getElementById("token_secret_custom").value);
+        }
 
         try {
             let response = await fetch("", { method: "POST", body: form });

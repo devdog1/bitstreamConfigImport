@@ -1,15 +1,6 @@
 <?php
 /*
 |--------------------------------------------------------------------------
-| Bitstreams API Credentials
-|--------------------------------------------------------------------------
-*/
-
-$BITSTREAMS_TOKEN_ID = "YOUR_TOKEN_ID";
-$BITSTREAMS_TOKEN_SECRET = "YOUR_TOKEN_SECRET";
-
-/*
-|--------------------------------------------------------------------------
 | Application Configuration
 |--------------------------------------------------------------------------
 */
@@ -19,7 +10,12 @@ $CONFIG = [
     'default_template_id' => 13,
     'default_region' => 'Bitstreams',
     'servers' => [
-        'Default Server' => '127.0.0.1:8080',
+        'default' => [
+            'name' => 'Default Server',
+            'address' => '127.0.0.1:8080',
+            'token_id' => 'YOUR_TOKEN_ID',
+            'token_secret' => 'YOUR_TOKEN_SECRET',
+        ],
     ],
 ];
 

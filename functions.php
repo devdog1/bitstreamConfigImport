@@ -1,11 +1,9 @@
 <?php
 require_once 'config.php';
 
-function bsAuth()
+function bsAuth($tokenId, $tokenSecret)
 {
-    global $BITSTREAMS_TOKEN_ID, $BITSTREAMS_TOKEN_SECRET;
-
-    return base64_encode($BITSTREAMS_TOKEN_ID . ":" . $BITSTREAMS_TOKEN_SECRET);
+    return base64_encode($tokenId . ":" . $tokenSecret);
 }
 
 function extractValue($block, $tag)
@@ -133,13 +131,13 @@ function generateSession($channel)
     return json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 }
 
-function apiCall($url, $method = 'GET', $payload = null)
+function apiCall($url, $tokenId, $tokenSecret, $method = 'GET', $payload = null)
 {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-    $headers = ["Authorization: Basic " . bsAuth()];
+    $headers = ["Authorization: Basic " . bsAuth($tokenId, $tokenSecret)];
 
     if ($method === 'POST') {
         curl_setopt($ch, CURLOPT_POST, true);
