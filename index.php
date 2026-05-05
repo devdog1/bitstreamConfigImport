@@ -91,8 +91,9 @@ require_once 'config.php';
                 </div>
                 <div class="mb-3">
                     <label for="template" class="form-label">Select Template</label>
-                    <select id="template" class="form-select"></select>
+                    <select id="template" class="form-select" onchange="showTemplateDetails()"></select>
                 </div>
+                <div id="template_details" class="mb-3 small"></div>
                 <div class="mb-3">
                     <label for="multicast" class="form-label">Multicast IP (232.x.x.x)</label>
                     <input id="multicast" class="form-control" placeholder="232.x.x.x">
@@ -119,6 +120,7 @@ require_once 'config.php';
     let currentJSON = null;
     let importModal = null;
     let sessions = [];
+    let currentTemplates = [];
 
     function copyJSON(id) {
         navigator.clipboard.writeText(document.getElementById(id).innerText);
@@ -233,6 +235,46 @@ require_once 'config.php';
         importModal.show();
     }
 
+    function showTemplateDetails() {
+        const select = document.getElementById("template");
+        const detailsDiv = document.getElementById("template_details");
+        const templateId = parseInt(select.value);
+
+        if (!templateId) {
+            detailsDiv.innerHTML = "";
+            return;
+        }
+
+        const template = currentTemplates.find(t => t.id === templateId);
+        if (!template || !template.output) {
+            detailsDiv.innerHTML = "No details available for this template.";
+            return;
+        }
+
+        let html = '<div class="card bg-secondary-subtle border-0"><div class="card-body p-2">';
+
+        // Video Params
+        if (template.output.video && template.output.video.length > 0) {
+            html += '<strong>Video:</strong><ul class="mb-1">';
+            template.output.video.forEach(v => {
+                html += `<li>${v.width}x${v.height} @ ${v.fps}fps (${v.codec}, ${v.bitrate}k)</li>`;
+            });
+            html += '</ul>';
+        }
+
+        // Audio Params
+        if (template.output.audio && template.output.audio.length > 0) {
+            html += '<strong>Audio:</strong><ul class="mb-0">';
+            template.output.audio.forEach(a => {
+                html += `<li>${a.codec} (${a.bitrate}k, ${a.samplerate})</li>`;
+            });
+            html += '</ul>';
+        }
+
+        html += '</div></div>';
+        detailsDiv.innerHTML = html;
+    }
+
     function onServerChange() {
         const select = document.getElementById("server_select");
         const option = select.options[select.selectedIndex];
@@ -285,7 +327,8 @@ require_once 'config.php';
                 throw new Error("Invalid response format from server.");
             }
 
-            templateSelect.innerHTML = "";
+            templateSelect.innerHTML = '<option value="">Select a template...</option>';
+            currentTemplates = list;
             list.forEach(t => {
                 let option = document.createElement("option");
                 option.value = t.id;
