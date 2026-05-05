@@ -123,6 +123,10 @@ require_once 'config.php';
                                     <label for="local_addr" class="form-label small">Local Interface Address</label>
                                     <input id="local_addr" class="form-control form-control-sm" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>" onchange="refreshOutputUrls()">
                                 </div>
+                                <div class="col-md-12 mt-2">
+                                    <label for="program_number" class="form-label small">MPEG-TS Program Number</label>
+                                    <input id="program_number" type="number" class="form-control form-control-sm" value="1">
+                                </div>
                             </div>
                             <div id="output_urls_container"></div>
                         </div>
@@ -436,6 +440,7 @@ require_once 'config.php';
         let region = document.getElementById("region").value;
         let serverKey = document.getElementById("server_select").value;
         let local_addr = document.getElementById("local_addr").value;
+        let programNumber = parseInt(document.getElementById("program_number").value);
 
         payload.regions = [region];
         const outputUrlInputs = document.querySelectorAll(".output-url-input");
@@ -446,6 +451,10 @@ require_once 'config.php';
             if (p.output_type == "multicast") {
                 p.output_urls[0].region = region;
                 p.output_urls[0].urls = outputUrls;
+                p.mpegts_settings = {
+                    "enable": true,
+                    "program_number": programNumber
+                };
             }
         });
 

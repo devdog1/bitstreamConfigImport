@@ -110,6 +110,10 @@ function generateSession($channel, $serverConfig = null)
                 "output_name" => $channel["name"] . "-udp",
                 "template_id" => $CONFIG['default_template_id'],
                 "output_type" => "multicast",
+                "mpegts_settings" => [
+                    "enable" => true,
+                    "program_number" => 1
+                ],
                 "output_urls" => [[
                     "region" => $CONFIG['default_region'],
                     "urls" => [
