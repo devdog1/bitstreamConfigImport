@@ -184,18 +184,43 @@ require_once 'config.php';
             document.getElementById('eventsPre').textContent = JSON.stringify(data.events, null, 2);
             document.getElementById('sourceReportsPre').textContent = JSON.stringify(data.source_reports, null, 2);
 
-            // Find HLS URL
+            // Find HLS URL, avoiding AC3 audio
             let hlsUrl = null;
             const streamData = (data.stream && data.stream.data) ? data.stream.data : null;
+            const templates = (data.templates && data.templates.data && data.templates.data.list) ? data.templates.data.list : [];
 
             if (streamData && streamData.playbacks) {
-                const httpPlayback = streamData.playbacks.find(p => p.output_type === 'http' || p.output_type === 'hls');
-                if (httpPlayback && httpPlayback.hls_url) {
-                    hlsUrl = httpPlayback.hls_url;
-                } else if (httpPlayback && httpPlayback.output_urls && httpPlayback.output_urls.length > 0) {
-                    const urlObj = httpPlayback.output_urls.find(u => u.urls && u.urls.some(url => url.includes('.m3u8')));
-                    if (urlObj) {
-                        hlsUrl = urlObj.urls.find(url => url.includes('.m3u8'));
+                // Filter playbacks to find those that are NOT using AC3
+                const validPlaybacks = streamData.playbacks.filter(p => {
+                    if (p.output_type !== 'http' && p.output_type !== 'hls') return false;
+
+                    // Find associated template
+                    const template = templates.find(t => t.id === p.template_id);
+                    const audioParams = (template && template.output && template.output.audio) ? template.output.audio : [];
+                    if (audioParams.length > 0) {
+                        // Check if any audio rendition uses AC3
+                        const hasAC3 = audioParams.some(a =>
+                            a.codec && (
+                                a.codec.toUpperCase().includes('AC3') ||
+                                a.codec.toUpperCase().includes('AC-3') ||
+                                a.codec.toUpperCase().includes('DOLBY')
+                            )
+                        );
+                        if (hasAC3) return false;
+                    }
+                    return true;
+                });
+
+                const httpPlayback = validPlaybacks[0]; // Take the first non-AC3 HTTP playback
+
+                if (httpPlayback) {
+                    if (httpPlayback.hls_url) {
+                        hlsUrl = httpPlayback.hls_url;
+                    } else if (httpPlayback.output_urls && httpPlayback.output_urls.length > 0) {
+                        const urlObj = httpPlayback.output_urls.find(u => u.urls && u.urls.some(url => url.includes('.m3u8')));
+                        if (urlObj) {
+                            hlsUrl = urlObj.urls.find(url => url.includes('.m3u8'));
+                        }
                     }
                 }
             }

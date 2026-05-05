@@ -24,10 +24,12 @@ $stream = apiCall($baseUrl, $tokenId, $tokenSecret);
 $events = apiCall($baseUrl . "events/", $tokenId, $tokenSecret);
 $sourceInfo = apiCall($baseUrl . "source_info/", $tokenId, $tokenSecret);
 $sourceReports = apiCall($baseUrl . "source_reports/", $tokenId, $tokenSecret);
+$templates = apiCall("{$protocol}://{$address}/api/v3/template/", $tokenId, $tokenSecret);
 
 echo json_encode([
     "stream" => json_decode($stream['response'], true),
     "events" => json_decode($events['response'], true),
     "source_info" => json_decode($sourceInfo['response'], true),
-    "source_reports" => json_decode($sourceReports['response'], true)
+    "source_reports" => json_decode($sourceReports['response'], true),
+    "templates" => json_decode($templates['response'], true)
 ]);
