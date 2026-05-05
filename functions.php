@@ -171,11 +171,11 @@ function fetchAllStreams($baseUrl, $tokenId, $tokenSecret)
 {
     $allStreams = [];
     $page = 1;
-    $pageSize = 100;
+    $limit = 25;
 
     while (true) {
         $separator = str_contains($baseUrl, '?') ? '&' : '?';
-        $url = "{$baseUrl}{$separator}page={$page}&page_size={$pageSize}";
+        $url = "{$baseUrl}{$separator}page={$page}&limit={$limit}";
 
         $result = apiCall($url, $tokenId, $tokenSecret);
 
@@ -185,6 +185,7 @@ function fetchAllStreams($baseUrl, $tokenId, $tokenSecret)
 
         $data = json_decode($result['response'], true);
         $list = $data['data']['list'] ?? [];
+        $total = $data['data']['total'] ?? 0;
 
         if (empty($list)) {
             break;
@@ -194,13 +195,13 @@ function fetchAllStreams($baseUrl, $tokenId, $tokenSecret)
             $allStreams[] = $item;
         }
 
-        if (count($list) < $pageSize) {
+        if (count($allStreams) >= $total || count($list) < $limit) {
             break;
         }
 
         $page++;
 
-        if ($page > 500) { // Safety break
+        if ($page > 1000) { // Safety break
             break;
         }
     }
