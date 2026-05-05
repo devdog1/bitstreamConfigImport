@@ -22,6 +22,8 @@ foreach ($CONFIG['servers'] as $key => $server) {
     foreach ($streams as $stream) {
         $stream['server_name'] = $server['name'];
         $stream['server_key'] = $key;
+        $stream['server_protocol'] = $protocol;
+        $stream['server_address'] = $address;
         $all_streams[] = $stream;
     }
 }

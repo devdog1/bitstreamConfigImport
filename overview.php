@@ -154,8 +154,11 @@ require_once 'config.php';
                         <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
                     `;
 
+                    const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${stream.stream_id}`;
                     tr.innerHTML = `
-                        <td class="align-middle fw-bold">${stream.name}</td>
+                        <td class="align-middle fw-bold">
+                            <a href="${streamUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>
+                        </td>
                         <td class="align-middle">${statusBadge}</td>
                         <td class="align-middle">${stream.server_name}</td>
                         <td class="align-middle">${actions}</td>
