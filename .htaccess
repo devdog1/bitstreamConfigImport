@@ -1,0 +1,13 @@
+# Basic security and configuration for Apache
+Options -Indexes
+
+# Set the default handler for PHP files
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+
+# Increase upload size for large backup files
+php_value upload_max_filesize 50M
+php_value post_max_size 50M
+php_value max_execution_time 300
+php_value max_input_time 300
