@@ -114,6 +114,56 @@ function generateSession($channel, $serverConfig = null)
                     "enable" => true,
                     "program_number" => 1
                 ],
+                "stream_remap" => [
+                    "enabled" => true,
+                    "stream_mappings" => [
+                        [
+                            "order" => "0",
+                            "type" => "PMT",
+                            "lang" => "*",
+                            "input_pid" => "*",
+                            "codec" => "*",
+                            "mode" => "remap",
+                            "output_pid" => "1906"
+                        ],
+                        [
+                            "order" => "1",
+                            "type" => "video",
+                            "lang" => "*",
+                            "input_pid" => "*",
+                            "codec" => "*",
+                            "mode" => "remap",
+                            "output_pid" => "400"
+                        ],
+                        [
+                            "order" => "2",
+                            "type" => "audio",
+                            "lang" => "*",
+                            "input_pid" => "*",
+                            "codec" => "aac",
+                            "mode" => "remap",
+                            "output_pid" => "483"
+                        ],
+                        [
+                            "order" => "3",
+                            "type" => "audio",
+                            "lang" => "*",
+                            "input_pid" => "*",
+                            "codec" => "ac3",
+                            "mode" => "remap",
+                            "output_pid" => "482"
+                        ],
+                        [
+                            "order" => "#",
+                            "type" => "*",
+                            "lang" => "*",
+                            "input_pid" => "*",
+                            "codec" => "*",
+                            "mode" => "drop",
+                            "output_pid" => "*"
+                        ]
+                    ]
+                ],
                 "output_urls" => [[
                     "region" => $CONFIG['default_region'],
                     "urls" => [
@@ -128,56 +178,6 @@ function generateSession($channel, $serverConfig = null)
         ],
         "regions" => [
             $CONFIG['default_region']
-        ],
-        "stream_remap" => [
-            "enabled" => true,
-            "stream_mappings" => [
-                [
-                    "order" => "0",
-                    "type" => "PMT",
-                    "lang" => "*",
-                    "input_pid" => "*",
-                    "codec" => "*",
-                    "mode" => "remap",
-                    "output_pid" => "1906"
-                ],
-                [
-                    "order" => "1",
-                    "type" => "video",
-                    "lang" => "*",
-                    "input_pid" => "*",
-                    "codec" => "*",
-                    "mode" => "remap",
-                    "output_pid" => "400"
-                ],
-                [
-                    "order" => "2",
-                    "type" => "audio",
-                    "lang" => "*",
-                    "input_pid" => "*",
-                    "codec" => "aac",
-                    "mode" => "remap",
-                    "output_pid" => "483"
-                ],
-                [
-                    "order" => "3",
-                    "type" => "audio",
-                    "lang" => "*",
-                    "input_pid" => "*",
-                    "codec" => "ac3",
-                    "mode" => "remap",
-                    "output_pid" => "482"
-                ],
-                [
-                    "order" => "#",
-                    "type" => "*",
-                    "lang" => "*",
-                    "input_pid" => "*",
-                    "codec" => "*",
-                    "mode" => "drop",
-                    "output_pid" => "*"
-                ]
-            ]
         ],
         "srt_passphrase" => ""
     ];

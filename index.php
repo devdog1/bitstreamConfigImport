@@ -446,19 +446,7 @@ require_once 'config.php';
         const outputUrlInputs = document.querySelectorAll(".output-url-input");
         const outputUrls = Array.from(outputUrlInputs).map(input => input.value);
 
-        payload.playbacks.forEach(p => {
-            p.template_id = template;
-            if (p.output_type == "multicast") {
-                p.output_urls[0].region = region;
-                p.output_urls[0].urls = outputUrls;
-                p.mpegts_settings = {
-                    "enable": true,
-                    "program_number": programNumber
-                };
-            }
-        });
-
-        // PID Remapping
+        // PID Remapping Data
         const pmtPid = document.getElementById("pid_pmt").value;
         const videoPid = document.getElementById("pid_video").value;
         const aacPid = document.getElementById("pid_aac").value;
@@ -512,10 +500,21 @@ require_once 'config.php';
             }
         ];
 
-        payload.stream_remap = {
-            "enabled": true,
-            "stream_mappings": mappings
-        };
+        payload.playbacks.forEach(p => {
+            p.template_id = template;
+            if (p.output_type == "multicast") {
+                p.output_urls[0].region = region;
+                p.output_urls[0].urls = outputUrls;
+                p.mpegts_settings = {
+                    "enable": true,
+                    "program_number": programNumber
+                };
+                p.stream_remap = {
+                    "enabled": true,
+                    "stream_mappings": mappings
+                };
+            }
+        });
 
         payload.input_urls.forEach(iu => {
             iu.region = region;
