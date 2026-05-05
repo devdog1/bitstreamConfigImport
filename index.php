@@ -109,6 +109,24 @@ require_once 'config.php';
                     <input id="multicast" class="form-control" placeholder="232.x.x.x" onchange="refreshOutputUrls()">
                 </div>
                 <div id="output_urls_container" class="mb-3"></div>
+
+                <hr>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">PID Remapping</label>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label for="pid_pmt" class="form-label small">PMT PID</label>
+                            <input id="pid_pmt" class="form-control form-control-sm" value="1906">
+                        </div>
+                        <div class="col-6">
+                            <label for="pid_video" class="form-label small">Video PID</label>
+                            <input id="pid_video" class="form-control form-control-sm" value="400">
+                        </div>
+                    </div>
+                    <div id="audio_pids_container"></div>
+                </div>
+                <hr>
+
                 <div class="mb-3">
                     <label for="region" class="form-label">Region</label>
                     <input id="region" class="form-control" value="<?= htmlspecialchars($CONFIG['default_region']) ?>">
@@ -287,6 +305,7 @@ require_once 'config.php';
         if (!templateId) {
             detailsDiv.innerHTML = "";
             refreshOutputUrls();
+            refreshPidFields();
             return;
         }
 
@@ -320,6 +339,37 @@ require_once 'config.php';
         detailsDiv.innerHTML = html;
 
         refreshOutputUrls();
+        refreshPidFields();
+    }
+
+    function refreshPidFields() {
+        const select = document.getElementById("template");
+        const container = document.getElementById("audio_pids_container");
+        const templateId = parseInt(select.value);
+
+        if (!templateId) {
+            container.innerHTML = "";
+            return;
+        }
+
+        const template = currentTemplates.find(t => t.id === templateId);
+        if (!template || !template.output || !template.output.audio) {
+            container.innerHTML = "";
+            return;
+        }
+
+        let html = '<label class="form-label small">Audio PIDs</label>';
+        template.output.audio.forEach((a, i) => {
+            // Default to 483, 482, 481...
+            const defaultPid = 483 - i;
+            html += `
+                <div class="input-group input-group-sm mb-1">
+                    <span class="input-group-text">Audio #${i + 1} (${a.codec})</span>
+                    <input type="text" class="form-control audio-pid-input" data-codec="${a.codec}" value="${defaultPid}">
+                </div>
+            `;
+        });
+        container.innerHTML = html;
     }
 
     function onServerChange() {
@@ -413,6 +463,59 @@ require_once 'config.php';
                 p.output_urls[0].urls = outputUrls;
             }
         });
+
+        // PID Remapping
+        const pmtPid = document.getElementById("pid_pmt").value;
+        const videoPid = document.getElementById("pid_video").value;
+        const audioPidInputs = document.querySelectorAll(".audio-pid-input");
+
+        let mappings = [
+            {
+                "order": "0",
+                "type": "PMT",
+                "lang": "*",
+                "input_pid": "*",
+                "codec": "*",
+                "mode": "remap",
+                "output_pid": pmtPid
+            },
+            {
+                "order": "1",
+                "type": "video",
+                "lang": "*",
+                "input_pid": "*",
+                "codec": "*",
+                "mode": "remap",
+                "output_pid": videoPid
+            }
+        ];
+
+        audioPidInputs.forEach((input, i) => {
+            mappings.push({
+                "order": (i + 2).toString(),
+                "type": "audio",
+                "lang": "*",
+                "input_pid": "*",
+                "codec": input.dataset.codec || "*",
+                "mode": "remap",
+                "output_pid": input.value
+            });
+        });
+
+        mappings.push({
+            "order": "#",
+            "type": "*",
+            "lang": "*",
+            "input_pid": "*",
+            "codec": "*",
+            "mode": "drop",
+            "output_pid": "*"
+        });
+
+        payload.stream_remap = {
+            "enabled": true,
+            "stream_mappings": mappings
+        };
 
         payload.input_urls.forEach(iu => {
             iu.region = region;
