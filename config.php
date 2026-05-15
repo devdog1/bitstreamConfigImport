@@ -9,6 +9,14 @@ $CONFIG = [
     'localaddr' => '172.17.233.130',
     'default_template_id' => 13,
     'default_region' => 'Bitstreams',
+    'inca_hosts' => [
+        'inca1' => [
+            'name' => 'INCA Host 1',
+            'address' => '10.0.0.50',
+            'username' => 'admin',
+            'password' => 'admin',
+        ],
+    ],
     'servers' => [
         'default' => [
             'name' => 'Default Server',

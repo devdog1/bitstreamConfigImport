@@ -37,15 +37,34 @@ require_once 'config.php';
         <div class="card-body">
             <h2>INCA Migration Tool</h2>
             <form id="generateForm">
-                <div class="mb-3">
-                    <label for="backup" class="form-label">INCA Backup XML Content</label>
-                    <textarea name="backup" id="backup" rows="8" class="form-control"></textarea>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label for="backup" class="form-label fw-bold">INCA Backup XML Content</label>
+                            <textarea name="backup" id="backup" rows="12" class="form-control"></textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <label for="inca_host" class="form-label fw-bold">Fetch directly from INCA</label>
+                                <select id="inca_host" class="form-select mb-2">
+                                    <option value="">Select INCA device...</option>
+                                    <?php foreach ($CONFIG['inca_hosts'] as $key => $host): ?>
+                                        <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($host['name']) ?> (<?= htmlspecialchars($host['address']) ?>)</option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-secondary w-100 mb-3" onclick="fetchFromInca()" id="fetchIncaBtn">Fetch Backup</button>
+
+                                <hr>
+
+                                <label for="backup_file" class="form-label fw-bold">Or upload Backup XML File</label>
+                                <input type="file" name="backup_file" id="backup_file" class="form-control mb-3">
+                            </div>
+                        </div>
+                        <button type="button" onclick="generateSessions()" id="generateBtn" class="btn btn-primary w-100 p-3 fw-bold">Generate Bitstreams Sessions</button>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label for="backup_file" class="form-label">Or upload Backup XML File</label>
-                    <input type="file" name="backup_file" id="backup_file" class="form-control">
-                </div>
-                <button type="button" onclick="generateSessions()" id="generateBtn" class="btn btn-primary">Generate Sessions</button>
             </form>
         </div>
     </div>
@@ -168,6 +187,39 @@ require_once 'config.php';
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     let currentJSON = null;
+
+    async function fetchFromInca() {
+        const hostKey = document.getElementById("inca_host").value;
+        if (!hostKey) {
+            alert("Please select an INCA device first.");
+            return;
+        }
+
+        const btn = document.getElementById("fetchIncaBtn");
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Fetching...';
+
+        const form = new FormData();
+        form.append("host_key", hostKey);
+
+        try {
+            const response = await fetch("api/fetch_inca_backup.php", { method: "POST", body: form });
+            const result = await response.json();
+
+            if (response.ok) {
+                document.getElementById("backup").value = result.xml;
+                alert("Backup fetched successfully.");
+            } else {
+                alert("Error: " + (result.error || "Failed to fetch backup."));
+            }
+        } catch (e) {
+            alert("Request failed: " + e);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
+    }
     let importModal = null;
     let sessions = [];
     let currentTemplates = [];
