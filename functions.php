@@ -268,3 +268,56 @@ function fetchAllStreams($baseUrl, $tokenId, $tokenSecret)
 
     return $allStreams;
 }
+
+/**
+ * Fetches streams from an INCA device using SNMP.
+ */
+function getIncaStreams($address, $community)
+{
+    if (!function_exists('snmp2_real_walk')) {
+        return [];
+    }
+
+    $streams = [];
+    $oid_base = ".1.3.6.1.4.1.39938.2.1.1.1.1";
+
+    // OIDs:
+    // .2 = Index
+    // .1 = Direction
+    // .3 = Name
+    // .6 = Bitrate
+    // .8 = Continuity Errors
+
+    $directions = @snmp2_real_walk($address, $community, "{$oid_base}.1");
+    if (!$directions) return [];
+
+    foreach ($directions as $oid => $val) {
+        $index = str_replace("iso.3.6.1.4.1.39938.2.1.1.1.1.1.", "", $oid);
+        $val = trim(str_replace('INTEGER: ', '', $val));
+
+        if ($val != "2") continue;
+
+        $name = @snmp2_get($address, $community, "{$oid_base}.3.{$index}");
+        $name = trim(str_replace('STRING: ', '', $name), '" ');
+
+        // Filter: name does not match (.*[T|t][E|e][S|s][T|t].*|.*xcode.*)
+        if (preg_match('/.*test.*|.*xcode.*/i', $name)) continue;
+
+        $bitrate = @snmp2_get($address, $community, "{$oid_base}.6.{$index}");
+        $bitrate = trim(str_replace('Counter64: ', '', $bitrate));
+
+        $errors = @snmp2_get($address, $community, "{$oid_base}.8.{$index}");
+        $errors = trim(str_replace('Counter64: ', '', $errors));
+
+        $streams[] = [
+            'stream_id' => "inca_{$index}",
+            'name' => $name,
+            'status' => 'inca_active',
+            'bitrate' => $bitrate,
+            'errors' => $errors,
+            'type' => 'inca'
+        ];
+    }
+
+    return $streams;
+}

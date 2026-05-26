@@ -37,6 +37,8 @@ require_once 'config.php';
                         <th>Name</th>
                         <th>Status</th>
                         <th>Server</th>
+                        <th>Bitrate</th>
+                        <th>Errors</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -138,29 +140,44 @@ require_once 'config.php';
             tbody.innerHTML = "";
 
             if (streams.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center">No streams found on configured servers.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No streams found on configured servers.</td></tr>';
             } else {
                 streams.forEach(stream => {
                     const tr = document.createElement("tr");
 
-                    const statusBadge = stream.status === 'active'
-                        ? '<span class="badge bg-success">Active</span>'
-                        : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
+                    let statusBadge = "";
+                    let actions = "";
+                    let nameHtml = "";
 
-                    const actions = `
-                        <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
-                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
-                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
-                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
-                    `;
+                    if (stream.type === 'inca') {
+                        statusBadge = '<span class="badge bg-info">INCA</span>';
+                        actions = '<span class="text-muted small">No actions available</span>';
+                        nameHtml = stream.name;
+                    } else {
+                        statusBadge = stream.status === 'active'
+                            ? '<span class="badge bg-success">Active</span>'
+                            : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
 
-                    const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${stream.stream_id}`;
+                        actions = `
+                            <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
+                            <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
+                            <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
+                            <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
+                        `;
+
+                        const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${stream.stream_id}`;
+                        nameHtml = `<a href="${streamUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
+                    }
+
+                    const bitrate = stream.bitrate ? (parseInt(stream.bitrate) / 1000000).toFixed(2) + " Mbps" : "-";
+                    const errors = stream.errors !== undefined ? stream.errors : "-";
+
                     tr.innerHTML = `
-                        <td class="align-middle fw-bold">
-                            <a href="${streamUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>
-                        </td>
+                        <td class="align-middle fw-bold">${nameHtml}</td>
                         <td class="align-middle">${statusBadge}</td>
                         <td class="align-middle">${stream.server_name}</td>
+                        <td class="align-middle">${bitrate}</td>
+                        <td class="align-middle">${errors}</td>
                         <td class="align-middle">${actions}</td>
                     `;
                     tbody.appendChild(tr);

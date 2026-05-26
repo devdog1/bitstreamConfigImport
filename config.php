@@ -15,6 +15,7 @@ $CONFIG = [
             'address' => '10.0.0.50',
             'username' => 'admin',
             'password' => 'admin',
+            'snmp_community' => 'public',
         ],
     ],
     'servers' => [

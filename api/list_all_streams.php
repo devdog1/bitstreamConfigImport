@@ -24,6 +24,19 @@ foreach ($CONFIG['servers'] as $key => $server) {
         $stream['server_key'] = $key;
         $stream['server_protocol'] = $protocol;
         $stream['server_address'] = $address;
+        $stream['type'] = 'bitstreams';
+        $all_streams[] = $stream;
+    }
+}
+
+foreach ($CONFIG['inca_hosts'] as $key => $host) {
+    $address = $host['address'];
+    $community = $host['snmp_community'] ?? 'public';
+
+    $streams = getIncaStreams($address, $community);
+    foreach ($streams as $stream) {
+        $stream['server_name'] = $host['name'];
+        $stream['server_key'] = $key;
         $all_streams[] = $stream;
     }
 }
