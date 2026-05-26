@@ -159,8 +159,18 @@ require_once 'config.php';
         tbody.innerHTML = '<tr><td colspan="4" class="text-center p-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
 
         try {
-            const response = await fetch("api/list_all_streams.php");
-            const streams = await response.json();
+            // Fetch Bitstreams and INCA in parallel
+            const [bsResponse, incaResponse] = await Promise.all([
+                fetch("api/list_bitstreams.php"),
+                fetch("api/list_inca.php")
+            ]);
+
+            const [bsStreams, incaStreams] = await Promise.all([
+                bsResponse.json(),
+                incaResponse.json()
+            ]);
+
+            const streams = [...bsStreams, ...incaStreams];
             allStreamsData = streams;
 
             tbody.innerHTML = "";
