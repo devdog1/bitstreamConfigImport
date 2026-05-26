@@ -281,36 +281,36 @@ function getIncaStreams($address, $community)
     $streams = [];
     $oid_base = ".1.3.6.1.4.1.39938.2.1.1.1.1";
 
-    // OIDs:
-    // .2 = Index
-    // .1 = Direction
-    // .3 = Name
-    // .6 = Bitrate
-    // .8 = Continuity Errors
+    // The MIB shows incaTransportStreamTable indexed by { incaTSDirectionIndex, incaTSStreamIndex }
+    // Direction: .1, Index: .2, Descr: .3, Bitrate: .6, Errors: .8
 
-    $directions = @snmp2_real_walk($address, $community, "{$oid_base}.1");
-    if (!$directions) return [];
+    // Walk descriptions to get all available streams
+    $descrs = @snmp2_real_walk($address, $community, "{$oid_base}.3");
+    if (!$descrs) return [];
 
-    foreach ($directions as $oid => $val) {
-        $index = str_replace("iso.3.6.1.4.1.39938.2.1.1.1.1.1.", "", $oid);
-        $val = trim(str_replace('INTEGER: ', '', $val));
+    foreach ($descrs as $oid => $name) {
+        // OID format: ...1.1.1.3.<direction>.<index>
+        // We need to extract <direction> and <index>
+        $parts = explode('.', $oid);
+        $index = array_pop($parts);
+        $direction = array_pop($parts);
 
-        if ($val != "2") continue;
+        // Filter: direction outbound (2)
+        if ($direction != "2") continue;
 
-        $name = @snmp2_get($address, $community, "{$oid_base}.3.{$index}");
-        $name = trim(str_replace('STRING: ', '', $name), '" ');
+        $name = trim(preg_replace('/^[A-Z0-9-]+: /i', '', $name), '" ');
 
         // Filter: name does not match (.*[T|t][E|e][S|s][T|t].*|.*xcode.*)
         if (preg_match('/.*test.*|.*xcode.*/i', $name)) continue;
 
-        $bitrate = @snmp2_get($address, $community, "{$oid_base}.6.{$index}");
-        $bitrate = trim(str_replace('Counter64: ', '', $bitrate));
+        $bitrate = @snmp2_get($address, $community, "{$oid_base}.6.{$direction}.{$index}");
+        $bitrate = trim(preg_replace('/^[A-Z0-9-]+: /i', '', $bitrate));
 
-        $errors = @snmp2_get($address, $community, "{$oid_base}.8.{$index}");
-        $errors = trim(str_replace('Counter64: ', '', $errors));
+        $errors = @snmp2_get($address, $community, "{$oid_base}.8.{$direction}.{$index}");
+        $errors = trim(preg_replace('/^[A-Z0-9-]+: /i', '', $errors));
 
         $streams[] = [
-            'stream_id' => "inca_{$index}",
+            'stream_id' => "inca_{$direction}_{$index}",
             'name' => $name,
             'status' => 'inca_active',
             'bitrate' => $bitrate,
