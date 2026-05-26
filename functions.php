@@ -321,3 +321,28 @@ function getIncaStreams($address, $community)
 
     return $streams;
 }
+
+/**
+ * Fetches the backup configuration from an INCA device.
+ */
+function fetchIncaBackup($address, $user, $pass)
+{
+    $url = "http://{$address}/sys/svc/core/api/v1/devices/1/configuration.bak";
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, "{$user}:{$pass}");
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+    $response = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($code >= 200 && $code < 300) {
+        return $response;
+    }
+
+    return null;
+}

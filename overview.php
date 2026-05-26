@@ -51,13 +51,16 @@ require_once 'config.php';
 </div>
 
 <div class="modal fade" id="incaDetailsModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="incaDetailsModalTitle">INCA Stream Instances</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <div id="incaEnrichedInfo" class="mb-4"></div>
+
+                <h6 class="fw-bold">SNMP Instances</h6>
                 <table class="table table-sm table-striped">
                     <thead>
                         <tr>
@@ -337,6 +340,27 @@ require_once 'config.php';
     function viewIncaDetails(idx) {
         const stream = allStreamsData[idx];
         document.getElementById('incaDetailsModalTitle').textContent = `INCA Stream: ${stream.name}`;
+
+        const enrichedDiv = document.getElementById('incaEnrichedInfo');
+        enrichedDiv.innerHTML = "";
+        if (stream.enriched) {
+            const e = stream.enriched;
+            let html = '<div class="card bg-light border-0"><div class="card-body">';
+            if (e.source) {
+                html += `<h6><strong>Input Source:</strong> ${e.source.dn}</h6>`;
+                html += `<div class="small text-muted ms-3 mb-2">UDP://${e.source.address}:${e.source.port} (SSM: ${e.source.ssm})</div>`;
+            }
+            if (e.filter) {
+                html += `<h6><strong>PID Filter:</strong> <span class="small font-monospace">${e.filter}</span></h6>`;
+            }
+            if (e.outputs && e.outputs.length > 0) {
+                html += `<h6 class="mt-2"><strong>Destinations:</strong></h6><ul class="small mb-0">`;
+                e.outputs.forEach(o => html += `<li>UDP://${o}</li>`);
+                html += '</ul>';
+            }
+            html += '</div></div>';
+            enrichedDiv.innerHTML = html;
+        }
 
         const tbody = document.getElementById('incaInstancesBody');
         tbody.innerHTML = "";
