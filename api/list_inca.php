@@ -21,45 +21,41 @@ foreach ($CONFIG['inca_hosts'] as $key => $host) {
     $xml = fetchIncaBackup($address, $host['username'], $host['password']);
     $enriched_data = [];
     if ($xml) {
-        try {
-            $sxe = new SimpleXMLElement($xml);
+        // Regex-based parsing to avoid SimpleXMLElement dependency
+        $sources = [];
+        preg_match_all('/<iptv_source id="([^"]+)"[^>]*>(.*?)<\/iptv_source>/s', $xml, $sourceMatches, PREG_SET_ORDER);
+        foreach ($sourceMatches as $sm) {
+            $id = $sm[1];
+            $inner = $sm[2];
+            $sources[$id] = [
+                'dn' => extractValue($inner, 'dn'),
+                'address' => extractValue($inner, 'address'),
+                'port' => extractValue($inner, 'port'),
+                'ssm' => extractValue($inner, 'ssm_address')
+            ];
+        }
 
-            // Map Sources
-            $sources = [];
-            if ($sxe->iptv_sources && $sxe->iptv_sources->iptv_source) {
-                foreach ($sxe->iptv_sources->iptv_source as $s) {
-                    $sources[(string)$s['id']] = [
-                        'dn' => (string)$s->dn,
-                        'address' => (string)$s->address,
-                        'port' => (string)$s->port,
-                        'ssm' => (string)$s->ssm_address
-                    ];
-                }
+        preg_match_all('/<transport_stream[^>]*>(.*?)<\/transport_stream>/s', $xml, $tsMatches, PREG_SET_ORDER);
+        foreach ($tsMatches as $tsm) {
+            $inner = $tsm[1];
+            $name = extractValue($inner, 'dn');
+            $src_id = extractValue($inner, 'ts_src');
+            $source = $sources[$src_id] ?? null;
+
+            $outputs = [];
+            preg_match_all('/<iptv_output[^>]*>(.*?)<\/iptv_output>/s', $inner, $outMatches, PREG_SET_ORDER);
+            foreach ($outMatches as $om) {
+                $outInner = $om[1];
+                $outputs[] = extractValue($outInner, 'address') . ":" . extractValue($outInner, 'port');
             }
 
-            // Map Transport Streams
-            if ($sxe->transport_streams && $sxe->transport_streams->transport_stream) {
-                foreach ($sxe->transport_streams->transport_stream as $ts) {
-                    $name = (string)$ts->dn;
-                    $src_id = (string)$ts->ts_src;
-                    $source = $sources[$src_id] ?? null;
-
-                    $outputs = [];
-                    if ($ts->outputs && $ts->outputs->iptv_output) {
-                        foreach ($ts->outputs->iptv_output as $out) {
-                            $outputs[] = (string)$out->address . ":" . (string)$out->port;
-                        }
-                    }
-
-                    $enriched_data[strtolower($name)] = [
-                        'source' => $source,
-                        'filter' => (string)$ts->ts_filter,
-                        'outputs' => $outputs
-                    ];
-                }
+            if ($name) {
+                $enriched_data[strtolower($name)] = [
+                    'source' => $source,
+                    'filter' => extractValue($inner, 'ts_filter'),
+                    'outputs' => $outputs
+                ];
             }
-        } catch (Exception $e) {
-            // Skip enrichment on parse error
         }
     }
 
