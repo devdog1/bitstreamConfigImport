@@ -34,10 +34,38 @@ foreach ($CONFIG['inca_hosts'] as $key => $host) {
     $community = $host['snmp_community'] ?? 'public';
 
     $streams = getIncaStreams($address, $community);
+
+    $grouped = [];
     foreach ($streams as $stream) {
-        $stream['server_name'] = $host['name'];
-        $stream['server_key'] = $key;
-        $all_streams[] = $stream;
+        $name = $stream['name'];
+        if (!isset($grouped[$name])) {
+            $grouped[$name] = [
+                'stream_id' => "inca_{$key}_" . md5($name),
+                'name' => $name,
+                'status' => 'inca_active',
+                'server_name' => $host['name'],
+                'server_key' => $key,
+                'server_address' => $address,
+                'server_user' => $host['username'] ?? '',
+                'server_pass' => $host['password'] ?? '',
+                'type' => 'inca',
+                'instances' => []
+            ];
+        }
+        $grouped[$name]['instances'][] = $stream;
+    }
+
+    foreach ($grouped as $g) {
+        // Calculate aggregate bitrate and errors for display
+        $totalBitrate = 0;
+        $totalErrors = 0;
+        foreach ($g['instances'] as $inst) {
+            $totalBitrate += (int)$inst['bitrate'];
+            $totalErrors += (int)$inst['errors'];
+        }
+        $g['bitrate'] = $totalBitrate;
+        $g['errors'] = $totalErrors;
+        $all_streams[] = $g;
     }
 }
 

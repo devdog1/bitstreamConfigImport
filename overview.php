@@ -50,6 +50,29 @@ require_once 'config.php';
     </div>
 </div>
 
+<div class="modal fade" id="incaDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="incaDetailsModalTitle">INCA Stream Instances</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Bitrate</th>
+                            <th>Errors</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incaInstancesBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="detailsModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -115,7 +138,9 @@ require_once 'config.php';
 
 <script>
     const detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+    const incaDetailsModal = new bootstrap.Modal(document.getElementById('incaDetailsModal'));
     let dataTable = null;
+    let allStreamsData = [];
 
     // Reset player when modal is closed
     document.getElementById('detailsModal').addEventListener('hidden.bs.modal', () => {
@@ -136,13 +161,14 @@ require_once 'config.php';
         try {
             const response = await fetch("api/list_all_streams.php");
             const streams = await response.json();
+            allStreamsData = streams;
 
             tbody.innerHTML = "";
 
             if (streams.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center">No streams found on configured servers.</td></tr>';
             } else {
-                streams.forEach(stream => {
+                streams.forEach((stream, idx) => {
                     const tr = document.createElement("tr");
 
                     let statusBadge = "";
@@ -151,8 +177,11 @@ require_once 'config.php';
 
                     if (stream.type === 'inca') {
                         statusBadge = '<span class="badge bg-info">INCA</span>';
-                        actions = '<span class="text-muted small">No actions available</span>';
-                        nameHtml = stream.name;
+                        actions = `<button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Instances (${stream.instances.length})</button>`;
+
+                        // Construct INCA URL with embedded auth
+                        const incaUrl = `http://${stream.server_user}:${stream.server_pass}@${stream.server_address}/controlpanel?deviceid=1`;
+                        nameHtml = `<a href="${incaUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
                     } else {
                         statusBadge = stream.status === 'active'
                             ? '<span class="badge bg-success">Active</span>'
@@ -293,6 +322,27 @@ require_once 'config.php';
         }
 
         video.load();
+    }
+
+    function viewIncaDetails(idx) {
+        const stream = allStreamsData[idx];
+        document.getElementById('incaDetailsModalTitle').textContent = `INCA Stream: ${stream.name}`;
+
+        const tbody = document.getElementById('incaInstancesBody');
+        tbody.innerHTML = "";
+
+        stream.instances.forEach(inst => {
+            const tr = document.createElement("tr");
+            const bitrate = inst.bitrate ? (parseInt(inst.bitrate) / 1000000).toFixed(2) + " Mbps" : "0.00 Mbps";
+            tr.innerHTML = `
+                <td>${inst.stream_id}</td>
+                <td>${bitrate}</td>
+                <td>${inst.errors}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        incaDetailsModal.show();
     }
 
     async function streamAction(serverKey, streamId, action) {
