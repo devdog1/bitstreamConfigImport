@@ -442,7 +442,20 @@ require_once 'config.php';
             if (e.filter) {
                 html += `<h6><strong>PID Filter:</strong> <span class="small font-monospace">${e.filter}</span></h6>`;
             }
-            if (e.outputs && e.outputs.length > 0) {
+            if (e.outputs_detailed && e.outputs_detailed.length > 0) {
+                html += `<h6 class="mt-2"><strong>Destinations & Profiles:</strong></h6><div class="list-group list-group-flush border rounded">`;
+                e.outputs_detailed.forEach(od => {
+                    let profileHtml = od.profile ?
+                        `<div class="small text-primary">Profile: ${od.profile.name} (${od.profile.resolution}, ${od.profile.codec}, ${(parseInt(od.profile.bitrate)/1000).toFixed(0)}k)</div>` :
+                        '<div class="small text-muted">No transcode profile</div>';
+                    html += `
+                        <div class="list-group-item p-2">
+                            <div class="fw-bold small">UDP://${od.dest}</div>
+                            ${profileHtml}
+                        </div>`;
+                });
+                html += '</div>';
+            } else if (e.outputs && e.outputs.length > 0) {
                 html += `<h6 class="mt-2"><strong>Destinations:</strong></h6><ul class="small mb-0">`;
                 e.outputs.forEach(o => html += `<li>UDP://${o}</li>`);
                 html += '</ul>';

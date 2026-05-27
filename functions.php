@@ -8,7 +8,8 @@ function bsAuth($tokenId, $tokenSecret)
 
 function extractValue($block, $tag)
 {
-    if (preg_match('/<' . preg_quote($tag) . '>(.*?)<\/' . preg_quote($tag) . '>/s', $block, $m)) {
+    // Improved regex to handle tags with attributes: <tag attr="val">content</tag>
+    if (preg_match('/<' . preg_quote($tag) . '[^>]*>(.*?)<\/' . preg_quote($tag) . '>/s', $block, $m)) {
         return trim($m[1]);
     }
     return "";

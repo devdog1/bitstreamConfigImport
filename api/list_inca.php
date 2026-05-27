@@ -67,6 +67,43 @@ foreach ($hosts as $key => $host) {
                 ];
             }
         }
+
+        // Parse Xcode Profiles
+        $xcode_profiles = [];
+        preg_match_all('/<xcode_profile id="([^"]+)"[^>]*>(.*?)<\/xcode_profile>/s', $xml, $profileMatches, PREG_SET_ORDER);
+        foreach ($profileMatches as $pm) {
+            $id = $pm[1];
+            $inner = $pm[2];
+            $xcode_profiles[$id] = [
+                'name' => extractValue($inner, 'dn'),
+                'codec' => extractValue($inner, 'mpeg_video_encoding'),
+                'bitrate' => extractValue($inner, 'mpeg_video_bitrate'),
+                'resolution' => extractValue($inner, 'mpeg_video_extent'),
+                'fps' => extractValue($inner, 'mpeg_video_frame_rate')
+            ];
+        }
+
+        // Associate Xcode profiles with transport streams
+        preg_match_all('/<transport_stream[^>]*>(.*?)<\/transport_stream>/s', $xml, $tsMatches, PREG_SET_ORDER);
+        foreach ($tsMatches as $tsm) {
+            $inner = $tsm[1];
+            $name = extractValue($inner, 'dn');
+            if (!$name) continue;
+
+            $outputs_with_profiles = [];
+            preg_match_all('/<iptv_output[^>]*>(.*?)<\/iptv_output>/s', $inner, $outMatches, PREG_SET_ORDER);
+            foreach ($outMatches as $om) {
+                $outInner = $om[1];
+                $xc_id = extractValue($outInner, 'xc_profile');
+                $outputs_with_profiles[] = [
+                    'dest' => extractValue($outInner, 'address') . ":" . extractValue($outInner, 'port'),
+                    'profile' => $xcode_profiles[$xc_id] ?? null
+                ];
+            }
+            if (isset($enriched_data[strtolower($name)])) {
+                $enriched_data[strtolower($name)]['outputs_detailed'] = $outputs_with_profiles;
+            }
+        }
     }
 
     $grouped = [];
