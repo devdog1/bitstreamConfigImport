@@ -318,7 +318,9 @@ require_once 'config.php';
                     let nameHtml = "";
 
                     if (stream.type === 'inca') {
-                        statusBadge = '<span class="badge bg-info">INCA</span>';
+                        statusBadge = stream.status === 'inca_down'
+                            ? '<span class="badge bg-danger">Down</span>'
+                            : '<span class="badge bg-info">Active</span>';
 
                         const actionsInca = `
                             <button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Instances (${stream.instances.length})</button>

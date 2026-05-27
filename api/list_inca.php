@@ -24,37 +24,36 @@ if ($specific_key) {
 foreach ($hosts as $key => $host) {
     $address = $host['address'];
     $community = $host['snmp_community'] ?? 'public';
-
-    $streams = getIncaStreams($address, $community);
-
-    // Fetch enriched info via INCA JSON APIs
     $user = $host['username'];
     $pass = $host['password'];
 
+    // 1. Fetch info via INCA JSON APIs first
     $sourcesRaw = incaApiCall($address, "/system/sources", $user, $pass);
     $outputsRaw = incaApiCall($address, "/dvp/streams/ip/outputs", $user, $pass);
     $profilesRaw = incaApiCall($address, "/dvp/video/profiles", $user, $pass);
 
-    $enriched_data = [];
+    if (!$outputsRaw) continue;
 
-    if ($sourcesRaw && $outputsRaw && $profilesRaw) {
-        // Map Sources
-        $sources = [];
+    // 2. Map Sources for lookups
+    $sourcesMap = [];
+    if ($sourcesRaw) {
         foreach ($sourcesRaw as $s) {
-            $sources[$s['id']] = [
+            $sourcesMap[$s['id']] = [
                 'id' => $s['id'],
                 'stream_id' => $s['stream_id'],
                 'dn' => $s['label'] ?? $s['name'],
                 'address' => explode(':', $s['description'] ?? '')[0] ?? '',
                 'port' => explode(':', $s['description'] ?? '')[1] ?? '',
-                'ssm' => '' // API sources list doesn't show SSM by default in this view
+                'ssm' => ''
             ];
         }
+    }
 
-        // Map Profiles
-        $profiles = [];
+    // 3. Map Profiles for lookups
+    $profilesMap = [];
+    if ($profilesRaw) {
         foreach ($profilesRaw as $p) {
-            $profiles[$p['id']] = [
+            $profilesMap[$p['id']] = [
                 'name' => $p['dn'],
                 'codec' => $p['codec'],
                 'bitrate' => $p['bitrate'],
@@ -62,66 +61,67 @@ foreach ($hosts as $key => $host) {
                 'fps' => $p['framerate']
             ];
         }
+    }
 
-        // Build Enriched Data from Outputs
-        foreach ($outputsRaw as $o) {
-            $name = $o['dn'];
-            $src_id = $o['sourceId'];
-            $source = $sources[$src_id] ?? null;
+    // 4. Get SNMP streams for matching
+    $snmpStreams = getIncaStreams($address, $community);
+    $snmpMap = [];
+    foreach ($snmpStreams as $s) {
+        $snmpMap[strtolower($s['name'])][] = $s;
+    }
 
-            $outputs_detailed = [];
-            if (isset($o['streams'])) {
-                foreach ($o['streams'] as $i => $s) {
-                    if (!$s['enabled']) continue;
-                    $outputs_detailed[] = [
-                        'prog_id' => "output_{$o['lid']}_" . ($i + 1),
-                        'dest' => $s['network']['address'] . ":" . $s['network']['port'],
-                        'profile' => $profiles[$s['video']['profileId'] ?? ''] ?? null
-                    ];
-                }
+    // 5. Build the list based on API outputs
+    foreach ($outputsRaw as $o) {
+        $name = $o['dn'];
+        $lowName = strtolower($name);
+
+        $src_id = $o['sourceId'];
+        $source = $sourcesMap[$src_id] ?? null;
+
+        $outputs_detailed = [];
+        if (isset($o['streams'])) {
+            foreach ($o['streams'] as $i => $s) {
+                if (!$s['enabled']) continue;
+                $outputs_detailed[] = [
+                    'prog_id' => "output_{$o['lid']}_" . ($i + 1),
+                    'dest' => $s['network']['address'] . ":" . $s['network']['port'],
+                    'profile' => $profilesMap[$s['video']['profileId'] ?? ''] ?? null
+                ];
             }
+        }
 
-            $enriched_data[strtolower($name)] = [
+        // Match with SNMP data
+        $instances = $snmpMap[$lowName] ?? [];
+        $status = empty($instances) ? 'inca_down' : 'inca_active';
+
+        $totalBitrate = 0;
+        $totalErrors = 0;
+        foreach ($instances as $inst) {
+            $totalBitrate += (int)$inst['bitrate'];
+            $totalErrors += (int)$inst['errors'];
+        }
+
+        $all_streams[] = [
+            'stream_id' => "inca_{$key}_" . md5($name),
+            'name' => $name,
+            'status' => $status,
+            'server_name' => $host['name'],
+            'server_key' => $key,
+            'server_address' => $address,
+            'server_user' => $user,
+            'server_pass' => $pass,
+            'type' => 'inca',
+            'bitrate' => $totalBitrate,
+            'errors' => $totalErrors,
+            'instances' => $instances,
+            'enriched' => [
                 'lid' => $o['lid'],
                 'uuid' => $o['id'],
                 'source' => $source,
                 'filter' => $o['sourceFilter'] ?? '',
                 'outputs_detailed' => $outputs_detailed
-            ];
-        }
-    }
-
-    $grouped = [];
-    foreach ($streams as $stream) {
-        $name = $stream['name'];
-        if (!isset($grouped[$name])) {
-            $grouped[$name] = [
-                'stream_id' => "inca_{$key}_" . md5($name),
-                'name' => $name,
-                'status' => 'inca_active',
-                'server_name' => $host['name'],
-                'server_key' => $key,
-                'server_address' => $address,
-                'server_user' => $host['username'] ?? '',
-                'server_pass' => $host['password'] ?? '',
-                'type' => 'inca',
-                'instances' => [],
-                'enriched' => $enriched_data[strtolower($name)] ?? null
-            ];
-        }
-        $grouped[$name]['instances'][] = $stream;
-    }
-
-    foreach ($grouped as $g) {
-        $totalBitrate = 0;
-        $totalErrors = 0;
-        foreach ($g['instances'] as $inst) {
-            $totalBitrate += (int)$inst['bitrate'];
-            $totalErrors += (int)$inst['errors'];
-        }
-        $g['bitrate'] = $totalBitrate;
-        $g['errors'] = $totalErrors;
-        $all_streams[] = $g;
+            ]
+        ];
     }
 }
 
