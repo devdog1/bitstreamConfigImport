@@ -42,6 +42,8 @@ foreach ($hosts as $key => $host) {
         $sources = [];
         foreach ($sourcesRaw as $s) {
             $sources[$s['id']] = [
+                'id' => $s['id'],
+                'stream_id' => $s['stream_id'],
                 'dn' => $s['label'] ?? $s['name'],
                 'address' => explode(':', $s['description'] ?? '')[0] ?? '',
                 'port' => explode(':', $s['description'] ?? '')[1] ?? '',
@@ -69,9 +71,10 @@ foreach ($hosts as $key => $host) {
 
             $outputs_detailed = [];
             if (isset($o['streams'])) {
-                foreach ($o['streams'] as $s) {
+                foreach ($o['streams'] as $i => $s) {
                     if (!$s['enabled']) continue;
                     $outputs_detailed[] = [
+                        'prog_id' => "output_{$o['lid']}_" . ($i + 1),
                         'dest' => $s['network']['address'] . ":" . $s['network']['port'],
                         'profile' => $profiles[$s['video']['profileId'] ?? ''] ?? null
                     ];
@@ -79,6 +82,7 @@ foreach ($hosts as $key => $host) {
             }
 
             $enriched_data[strtolower($name)] = [
+                'lid' => $o['lid'],
                 'source' => $source,
                 'filter' => $o['sourceFilter'] ?? '',
                 'outputs_detailed' => $outputs_detailed

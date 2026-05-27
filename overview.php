@@ -10,6 +10,31 @@ require_once 'config.php';
     <title>Stream Overview - Bitstreams Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        .table-responsive {
+            min-height: 200px;
+        }
+        .inca-html-content {
+            font-family: sans-serif;
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        .ts_view_table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            background: white;
+            border: 1px solid #dee2e6;
+        }
+        .ts_view_table td {
+            padding: 4px 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .ts_titlerow { background: #f8f9fa; }
+        .ts_bitrate_cell { text-align: right; font-family: monospace; }
+        .ts_buttons { display: none; } /* Hide INCA internal control buttons */
+    </style>
 </head>
 <body class="bg-light">
 
@@ -70,19 +95,34 @@ require_once 'config.php';
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="incaEnrichedInfo" class="mb-4"></div>
+                <ul class="nav nav-tabs mb-3" id="incaTabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#incaTabSummary">Overview</button>
+                    </li>
+                    <li class="nav-item" id="incaSourceTabLi"></li>
+                    <!-- Dynamic Output Tabs will be injected here -->
+                </ul>
 
-                <h6 class="fw-bold">SNMP Instances</h6>
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Bitrate</th>
-                            <th>Errors</th>
-                        </tr>
-                    </thead>
-                    <tbody id="incaInstancesBody"></tbody>
-                </table>
+                <div class="tab-content" id="incaTabContent">
+                    <div class="tab-pane fade show active" id="incaTabSummary">
+                        <div id="incaEnrichedInfo" class="mb-4"></div>
+
+                        <h6 class="fw-bold">SNMP Instances</h6>
+                        <table class="table table-sm table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Bitrate</th>
+                                    <th>Errors</th>
+                                </tr>
+                            </thead>
+                            <tbody id="incaInstancesBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="tab-pane fade" id="incaTabSource">
+                        <div id="incaSourceContent" class="inca-html-content"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -428,19 +468,57 @@ require_once 'config.php';
 
     function viewIncaDetails(idx) {
         const stream = allStreamsData[idx];
+        const serverKey = stream.server_key;
         document.getElementById('incaDetailsModalTitle').textContent = `INCA Stream: ${stream.name}`;
+
+        // Reset Tabs
+        const tabsUl = document.getElementById('incaTabs');
+        const tabContent = document.getElementById('incaTabContent');
+
+        // Remove old dynamic tabs and panes
+        tabsUl.querySelectorAll('.dynamic-tab').forEach(el => el.remove());
+        tabContent.querySelectorAll('.dynamic-tab-pane').forEach(el => el.remove());
+
+        // Handle Source Tab
+        const sourceTabLi = document.getElementById('incaSourceTabLi');
+        sourceTabLi.innerHTML = "";
+        if (stream.enriched && stream.enriched.source) {
+            const s = stream.enriched.source;
+            sourceTabLi.innerHTML = `<button class="nav-link dynamic-tab" data-bs-toggle="tab" data-bs-target="#incaTabSource" onclick="loadIncaHtml('${serverKey}', '${s.stream_id}', 'incaSourceContent')">Source (${s.dn})</button>`;
+        }
+
+        // Handle Output Tabs
+        if (stream.enriched && stream.enriched.outputs_detailed) {
+            stream.enriched.outputs_detailed.forEach((od, i) => {
+                const tabId = `incaTabOut${i}`;
+                const contentId = `incaOutContent${i}`;
+
+                // Add Tab Link
+                const li = document.createElement('li');
+                li.className = 'nav-item dynamic-tab';
+                li.innerHTML = `<button class="nav-link" data-bs-toggle="tab" data-bs-target="#${tabId}" onclick="loadIncaHtml('${serverKey}', '${od.prog_id}', '${contentId}')">Output #${i+1}</button>`;
+                tabsUl.appendChild(li);
+
+                // Add Tab Content Pane
+                const pane = document.createElement('div');
+                pane.id = tabId;
+                pane.className = 'tab-pane fade dynamic-tab-pane';
+                pane.innerHTML = `<div id="${contentId}" class="inca-html-content"></div>`;
+                tabContent.appendChild(pane);
+            });
+        }
 
         const enrichedDiv = document.getElementById('incaEnrichedInfo');
         enrichedDiv.innerHTML = "";
         if (stream.enriched) {
             const e = stream.enriched;
-            let html = '<div class="card bg-light border-0"><div class="card-body">';
+            let html = '<div class="card bg-light border-0 shadow-sm"><div class="card-body">';
             if (e.source) {
                 html += `<h6><strong>Input Source:</strong> ${e.source.dn}</h6>`;
-                html += `<div class="small text-muted ms-3 mb-2">UDP://${e.source.address}:${e.source.port} (SSM: ${e.source.ssm})</div>`;
+                html += `<div class="small text-muted ms-3 mb-2">UDP://${e.source.address}:${e.source.port}</div>`;
             }
             if (e.filter) {
-                html += `<h6><strong>PID Filter:</strong> <span class="small font-monospace">${e.filter}</span></h6>`;
+                html += `<h6><strong>PID Filter:</strong> <span class="small font-monospace text-break">${e.filter}</span></h6>`;
             }
             if (e.outputs_detailed && e.outputs_detailed.length > 0) {
                 html += `<h6 class="mt-2"><strong>Destinations & Profiles:</strong></h6><div class="list-group list-group-flush border rounded">`;
@@ -455,10 +533,6 @@ require_once 'config.php';
                         </div>`;
                 });
                 html += '</div>';
-            } else if (e.outputs && e.outputs.length > 0) {
-                html += `<h6 class="mt-2"><strong>Destinations:</strong></h6><ul class="small mb-0">`;
-                e.outputs.forEach(o => html += `<li>UDP://${o}</li>`);
-                html += '</ul>';
             }
             html += '</div></div>';
             enrichedDiv.innerHTML = html;
@@ -479,6 +553,19 @@ require_once 'config.php';
         });
 
         incaDetailsModal.show();
+    }
+
+    async function loadIncaHtml(serverKey, progId, containerId) {
+        const div = document.getElementById(containerId);
+        div.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Fetching live data...</div></div>';
+
+        try {
+            const r = await fetch(`api/get_inca_html.php?server_key=${serverKey}&prog_id=${progId}`);
+            const html = await r.text();
+            div.innerHTML = html;
+        } catch(e) {
+            div.innerHTML = `<div class="alert alert-danger mt-3">Error loading details: ${e}</div>`;
+        }
     }
 
     async function streamAction(serverKey, streamId, action) {

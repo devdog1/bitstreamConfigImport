@@ -349,6 +349,26 @@ function fetchIncaBackup($address, $user, $pass)
 }
 
 /**
+ * Fetches raw content from an INCA device.
+ */
+function incaRawCall($address, $path, $user, $pass)
+{
+    $url = "http://{$address}/sys/svc/core/api/v1{$path}";
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERPWD, "{$user}:{$pass}");
+    curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    return $response;
+}
+
+/**
  * Performs an API call to an INCA device.
  */
 function incaApiCall($address, $path, $user, $pass)
