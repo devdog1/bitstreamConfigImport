@@ -10,8 +10,18 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 }
 
 $all_streams = [];
+$specific_key = $_GET['key'] ?? null;
 
-foreach ($CONFIG['servers'] as $key => $server) {
+$servers = $CONFIG['servers'];
+if ($specific_key) {
+    if (isset($servers[$specific_key])) {
+        $servers = [$specific_key => $servers[$specific_key]];
+    } else {
+        $servers = [];
+    }
+}
+
+foreach ($servers as $key => $server) {
     $address = $server['address'];
     $protocol = $server['protocol'] ?? 'http';
     $tokenId = $server['token_id'];

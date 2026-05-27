@@ -10,8 +10,18 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 }
 
 $all_streams = [];
+$specific_key = $_GET['key'] ?? null;
 
-foreach ($CONFIG['inca_hosts'] as $key => $host) {
+$hosts = $CONFIG['inca_hosts'];
+if ($specific_key) {
+    if (isset($hosts[$specific_key])) {
+        $hosts = [$specific_key => $hosts[$specific_key]];
+    } else {
+        $hosts = [];
+    }
+}
+
+foreach ($hosts as $key => $host) {
     $address = $host['address'];
     $community = $host['snmp_community'] ?? 'public';
 

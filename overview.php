@@ -29,7 +29,19 @@ require_once 'config.php';
         <button class="btn btn-outline-primary" onclick="loadStreams()">Refresh Status</button>
     </div>
 
-    <div class="card p-3">
+    <!-- Device Status Dashboard -->
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 fw-bold">Device Pull Status</h6>
+        </div>
+        <div class="card-body">
+            <div id="deviceStatusList" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
+                <!-- Devices will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="card p-3 shadow-sm border-0">
         <div class="table-responsive">
             <table id="streamsTable" class="table table-hover mb-0">
                 <thead class="table-light">
@@ -145,6 +157,11 @@ require_once 'config.php';
     let dataTable = null;
     let allStreamsData = [];
 
+    const DEVICE_CONFIG = {
+        bitstreams: <?= json_encode(array_map(fn($s) => ['name' => $s['name']], $CONFIG['servers'])) ?>,
+        inca: <?= json_encode(array_map(fn($h) => ['name' => $h['name']], $CONFIG['inca_hosts'])) ?>
+    };
+
     // Reset player when modal is closed
     document.getElementById('detailsModal').addEventListener('hidden.bs.modal', () => {
         const video = document.getElementById('videoPlayer');
@@ -153,30 +170,102 @@ require_once 'config.php';
         video.load();
     });
 
+    function updateDeviceUI(key, platform, status, count = 0) {
+        let el = document.getElementById(`dev-${platform}-${key}`);
+        if (!el) {
+            const container = document.getElementById('deviceStatusList');
+            el = document.createElement('div');
+            el.id = `dev-${platform}-${key}`;
+            el.className = 'col';
+            container.appendChild(el);
+        }
+
+        const platformLabel = platform === 'bitstreams' ? 'Bitstreams' : 'INCA';
+        const name = DEVICE_CONFIG[platform][key].name;
+
+        let badgeClass = 'bg-secondary';
+        let statusText = 'Pending';
+        let spinner = '';
+
+        if (status === 'pulling') {
+            badgeClass = 'bg-primary';
+            statusText = 'Pulling...';
+            spinner = '<div class="spinner-border spinner-border-sm ms-2" role="status"></div>';
+        } else if (status === 'completed') {
+            badgeClass = 'bg-success';
+            statusText = `Completed (${count})`;
+        } else if (status === 'error') {
+            badgeClass = 'bg-danger';
+            statusText = 'Error';
+        }
+
+        el.innerHTML = `
+            <div class="card h-100 border-0 bg-light">
+                <div class="card-body p-2 d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                        <span class="badge rounded-pill text-dark border small" style="font-size: 0.65rem;">${platformLabel}</span>
+                        ${spinner}
+                    </div>
+                    <div class="fw-bold small text-truncate" title="${name}">${name}</div>
+                    <div class="mt-auto pt-1">
+                        <span class="badge ${badgeClass} w-100" style="font-size: 0.7rem;">${statusText}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
     async function loadStreams() {
         if (dataTable) {
+            dataTable.clear().draw();
             dataTable.destroy();
+            dataTable = null;
         }
 
         const tbody = document.getElementById("streamsTableBody");
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center p-5"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+        tbody.innerHTML = "";
+        allStreamsData = [];
+
+        // Reset and show initial device list
+        document.getElementById('deviceStatusList').innerHTML = "";
+        Object.keys(DEVICE_CONFIG.bitstreams).forEach(key => updateDeviceUI(key, 'bitstreams', 'pending'));
+        Object.keys(DEVICE_CONFIG.inca).forEach(key => updateDeviceUI(key, 'inca', 'pending'));
+
+        const pullTasks = [];
+
+        // Queue Bitstreams pulls
+        Object.keys(DEVICE_CONFIG.bitstreams).forEach(key => {
+            pullTasks.push((async () => {
+                updateDeviceUI(key, 'bitstreams', 'pulling');
+                try {
+                    const r = await fetch(`api/list_bitstreams.php?key=${key}`);
+                    const data = await r.json();
+                    allStreamsData.push(...data);
+                    updateDeviceUI(key, 'bitstreams', 'completed', data.length);
+                } catch (e) {
+                    updateDeviceUI(key, 'bitstreams', 'error');
+                }
+            })());
+        });
+
+        // Queue INCA pulls
+        Object.keys(DEVICE_CONFIG.inca).forEach(key => {
+            pullTasks.push((async () => {
+                updateDeviceUI(key, 'inca', 'pulling');
+                try {
+                    const r = await fetch(`api/list_inca.php?key=${key}`);
+                    const data = await r.json();
+                    allStreamsData.push(...data);
+                    updateDeviceUI(key, 'inca', 'completed', data.length);
+                } catch (e) {
+                    updateDeviceUI(key, 'inca', 'error');
+                }
+            })());
+        });
 
         try {
-            // Fetch Bitstreams and INCA in parallel
-            const [bsResponse, incaResponse] = await Promise.all([
-                fetch("api/list_bitstreams.php"),
-                fetch("api/list_inca.php")
-            ]);
-
-            const [bsStreams, incaStreams] = await Promise.all([
-                bsResponse.json(),
-                incaResponse.json()
-            ]);
-
-            const streams = [...bsStreams, ...incaStreams];
-            allStreamsData = streams;
-
-            tbody.innerHTML = "";
+            await Promise.all(pullTasks);
+            const streams = allStreamsData;
 
             if (streams.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center">No streams found on configured servers.</td></tr>';
