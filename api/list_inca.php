@@ -27,82 +27,62 @@ foreach ($hosts as $key => $host) {
 
     $streams = getIncaStreams($address, $community);
 
-    // Fetch and parse XML backup for enriched info
-    $xml = fetchIncaBackup($address, $host['username'], $host['password']);
+    // Fetch enriched info via INCA JSON APIs
+    $user = $host['username'];
+    $pass = $host['password'];
+
+    $sourcesRaw = incaApiCall($address, "/system/sources", $user, $pass);
+    $outputsRaw = incaApiCall($address, "/dvp/streams/ip/outputs", $user, $pass);
+    $profilesRaw = incaApiCall($address, "/dvp/video/profiles", $user, $pass);
+
     $enriched_data = [];
-    if ($xml) {
-        // Regex-based parsing to avoid SimpleXMLElement dependency
+
+    if ($sourcesRaw && $outputsRaw && $profilesRaw) {
+        // Map Sources
         $sources = [];
-        preg_match_all('/<iptv_source id="([^"]+)"[^>]*>(.*?)<\/iptv_source>/s', $xml, $sourceMatches, PREG_SET_ORDER);
-        foreach ($sourceMatches as $sm) {
-            $id = $sm[1];
-            $inner = $sm[2];
-            $sources[$id] = [
-                'dn' => extractValue($inner, 'dn'),
-                'address' => extractValue($inner, 'address'),
-                'port' => extractValue($inner, 'port'),
-                'ssm' => extractValue($inner, 'ssm_address')
+        foreach ($sourcesRaw as $s) {
+            $sources[$s['id']] = [
+                'dn' => $s['label'] ?? $s['name'],
+                'address' => explode(':', $s['description'] ?? '')[0] ?? '',
+                'port' => explode(':', $s['description'] ?? '')[1] ?? '',
+                'ssm' => '' // API sources list doesn't show SSM by default in this view
             ];
         }
 
-        preg_match_all('/<transport_stream[^>]*>(.*?)<\/transport_stream>/s', $xml, $tsMatches, PREG_SET_ORDER);
-        foreach ($tsMatches as $tsm) {
-            $inner = $tsm[1];
-            $name = extractValue($inner, 'dn');
-            $src_id = extractValue($inner, 'ts_src');
+        // Map Profiles
+        $profiles = [];
+        foreach ($profilesRaw as $p) {
+            $profiles[$p['id']] = [
+                'name' => $p['dn'],
+                'codec' => $p['codec'],
+                'bitrate' => $p['bitrate'],
+                'resolution' => $p['width'] . "x" . $p['height'],
+                'fps' => $p['framerate']
+            ];
+        }
+
+        // Build Enriched Data from Outputs
+        foreach ($outputsRaw as $o) {
+            $name = $o['dn'];
+            $src_id = $o['sourceId'];
             $source = $sources[$src_id] ?? null;
 
-            $outputs = [];
-            preg_match_all('/<iptv_output[^>]*>(.*?)<\/iptv_output>/s', $inner, $outMatches, PREG_SET_ORDER);
-            foreach ($outMatches as $om) {
-                $outInner = $om[1];
-                $outputs[] = extractValue($outInner, 'address') . ":" . extractValue($outInner, 'port');
+            $outputs_detailed = [];
+            if (isset($o['streams'])) {
+                foreach ($o['streams'] as $s) {
+                    if (!$s['enabled']) continue;
+                    $outputs_detailed[] = [
+                        'dest' => $s['network']['address'] . ":" . $s['network']['port'],
+                        'profile' => $profiles[$s['video']['profileId'] ?? ''] ?? null
+                    ];
+                }
             }
 
-            if ($name) {
-                $enriched_data[strtolower($name)] = [
-                    'source' => $source,
-                    'filter' => extractValue($inner, 'ts_filter'),
-                    'outputs' => $outputs
-                ];
-            }
-        }
-
-        // Parse Xcode Profiles
-        $xcode_profiles = [];
-        preg_match_all('/<xcode_profile id="([^"]+)"[^>]*>(.*?)<\/xcode_profile>/s', $xml, $profileMatches, PREG_SET_ORDER);
-        foreach ($profileMatches as $pm) {
-            $id = $pm[1];
-            $inner = $pm[2];
-            $xcode_profiles[$id] = [
-                'name' => extractValue($inner, 'dn'),
-                'codec' => extractValue($inner, 'mpeg_video_encoding'),
-                'bitrate' => extractValue($inner, 'mpeg_video_bitrate'),
-                'resolution' => extractValue($inner, 'mpeg_video_extent'),
-                'fps' => extractValue($inner, 'mpeg_video_frame_rate')
+            $enriched_data[strtolower($name)] = [
+                'source' => $source,
+                'filter' => $o['sourceFilter'] ?? '',
+                'outputs_detailed' => $outputs_detailed
             ];
-        }
-
-        // Associate Xcode profiles with transport streams
-        preg_match_all('/<transport_stream[^>]*>(.*?)<\/transport_stream>/s', $xml, $tsMatches, PREG_SET_ORDER);
-        foreach ($tsMatches as $tsm) {
-            $inner = $tsm[1];
-            $name = extractValue($inner, 'dn');
-            if (!$name) continue;
-
-            $outputs_with_profiles = [];
-            preg_match_all('/<iptv_output[^>]*>(.*?)<\/iptv_output>/s', $inner, $outMatches, PREG_SET_ORDER);
-            foreach ($outMatches as $om) {
-                $outInner = $om[1];
-                $xc_id = extractValue($outInner, 'xc_profile');
-                $outputs_with_profiles[] = [
-                    'dest' => extractValue($outInner, 'address') . ":" . extractValue($outInner, 'port'),
-                    'profile' => $xcode_profiles[$xc_id] ?? null
-                ];
-            }
-            if (isset($enriched_data[strtolower($name)])) {
-                $enriched_data[strtolower($name)]['outputs_detailed'] = $outputs_with_profiles;
-            }
         }
     }
 
