@@ -255,15 +255,96 @@ require_once 'config.php';
         `;
     }
 
-    async function loadStreams() {
+    function renderTable() {
         if (dataTable) {
-            dataTable.clear().draw();
             dataTable.destroy();
-            dataTable = null;
         }
 
         const tbody = document.getElementById("streamsTableBody");
         tbody.innerHTML = "";
+
+        if (allStreamsData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No streams found.</td></tr>';
+        } else {
+            allStreamsData.forEach((stream, idx) => {
+                const tr = document.createElement("tr");
+
+                let statusBadge = "";
+                let actions = "";
+                let nameHtml = "";
+
+                if (stream.type === 'inca') {
+                    statusBadge = stream.status === 'inca_down'
+                        ? '<span class="badge bg-danger">Down</span>'
+                        : '<span class="badge bg-info">Active</span>';
+
+                    const actionsInca = `
+                        <button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Details</button>
+                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'start', 'inca')">Start</button>
+                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'stop', 'inca')">Stop</button>
+                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'restart', 'inca')">Restart</button>
+                    `;
+                    actions = actionsInca;
+
+                    const incaUrl = `http://${stream.server_user}:${stream.server_pass}@${stream.server_address}/controlpanel?deviceid=1`;
+                    nameHtml = `<a href="${incaUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
+                } else {
+                    statusBadge = stream.status === 'active'
+                        ? '<span class="badge bg-success">Active</span>'
+                        : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
+
+                    actions = `
+                        <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
+                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
+                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
+                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
+                    `;
+
+                    const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${stream.stream_id}`;
+                    nameHtml = `<a href="${streamUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
+                }
+
+                const bitrate = stream.bitrate ? (parseInt(stream.bitrate) / 1000000).toFixed(2) + " Mbps" : "-";
+                const errors = stream.errors !== undefined ? stream.errors : "-";
+
+                tr.innerHTML = `
+                    <td class="align-middle fw-bold">${nameHtml}</td>
+                    <td class="align-middle">${statusBadge}</td>
+                    <td class="align-middle">${stream.server_name}</td>
+                    <td class="align-middle">${bitrate}</td>
+                    <td class="align-middle">${errors}</td>
+                    <td class="align-middle">${actions}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        dataTable = $('#streamsTable').DataTable({
+            "pageLength": 25,
+            "order": [[0, "asc"]]
+        });
+    }
+
+    async function reloadDevice(key, platform) {
+        updateDeviceUI(key, platform, 'pulling');
+        try {
+            const api = platform === 'bitstreams' ? 'api/list_bitstreams.php' : 'api/list_inca.php';
+            const r = await fetch(`${api}?key=${key}`);
+            const data = await r.json();
+
+            // Update the global data store for this device's streams
+            allStreamsData = allStreamsData.filter(s => !(s.server_key === key && s.type === platform));
+            allStreamsData.push(...data);
+
+            updateDeviceUI(key, platform, 'completed', data.length);
+            renderTable();
+        } catch (e) {
+            updateDeviceUI(key, platform, 'error');
+            console.error(e);
+        }
+    }
+
+    async function loadStreams() {
         allStreamsData = [];
 
         // Reset and show initial device list
@@ -305,71 +386,9 @@ require_once 'config.php';
 
         try {
             await Promise.all(pullTasks);
-            const streams = allStreamsData;
-
-            if (streams.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center">No streams found on configured servers.</td></tr>';
-            } else {
-                streams.forEach((stream, idx) => {
-                    const tr = document.createElement("tr");
-
-                    let statusBadge = "";
-                    let actions = "";
-                    let nameHtml = "";
-
-                    if (stream.type === 'inca') {
-                        statusBadge = stream.status === 'inca_down'
-                            ? '<span class="badge bg-danger">Down</span>'
-                            : '<span class="badge bg-info">Active</span>';
-
-                        const actionsInca = `
-                            <button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Instances (${stream.instances.length})</button>
-                            <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'start', 'inca')">Start</button>
-                            <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'stop', 'inca')">Stop</button>
-                            <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'restart', 'inca')">Restart</button>
-                        `;
-                        actions = actionsInca;
-
-                        // Construct INCA URL with embedded auth
-                        const incaUrl = `http://${stream.server_user}:${stream.server_pass}@${stream.server_address}/controlpanel?deviceid=1`;
-                        nameHtml = `<a href="${incaUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
-                    } else {
-                        statusBadge = stream.status === 'active'
-                            ? '<span class="badge bg-success">Active</span>'
-                            : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
-
-                        actions = `
-                            <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
-                            <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
-                            <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
-                            <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
-                        `;
-
-                        const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${stream.stream_id}`;
-                        nameHtml = `<a href="${streamUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
-                    }
-
-                    const bitrate = stream.bitrate ? (parseInt(stream.bitrate) / 1000000).toFixed(2) + " Mbps" : "-";
-                    const errors = stream.errors !== undefined ? stream.errors : "-";
-
-                    tr.innerHTML = `
-                        <td class="align-middle fw-bold">${nameHtml}</td>
-                        <td class="align-middle">${statusBadge}</td>
-                        <td class="align-middle">${stream.server_name}</td>
-                        <td class="align-middle">${bitrate}</td>
-                        <td class="align-middle">${errors}</td>
-                        <td class="align-middle">${actions}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-
-            dataTable = $('#streamsTable').DataTable({
-                "pageLength": 25,
-                "order": [[0, "asc"]]
-            });
-
+            renderTable();
         } catch (e) {
+            const tbody = document.getElementById("streamsTableBody");
             tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error loading streams: ${e}</td></tr>`;
         }
     }
@@ -597,7 +616,7 @@ require_once 'config.php';
 
             if (result.code >= 200 && result.code < 300 && (bsResponse.err_code === 0 || bsResponse.err_code === undefined)) {
                 alert(`Action ${action} successful.`);
-                loadStreams();
+                reloadDevice(serverKey, type);
             } else {
                 alert("Error: " + (bsResponse.err_message || result.response || "Action failed"));
             }

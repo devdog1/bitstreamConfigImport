@@ -131,45 +131,51 @@ require_once 'config.php';
                         </div>
                     </div>
                     <div class="col-lg-6">
-                        <div class="bg-primary-subtle p-3 rounded mb-3 border border-primary-subtle">
-                            <label class="form-label fw-bold">Output URLs</label>
-                            <div class="row g-2 mb-3">
-                                <div class="col-md-6">
-                                    <label for="multicast" class="form-label small">Base Multicast IP</label>
-                                    <input id="multicast" class="form-control form-control-sm" placeholder="232.x.x.x" onchange="refreshOutputUrls()">
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="local_addr" class="form-label small">Local Interface Address</label>
-                                    <input id="local_addr" class="form-control form-control-sm" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>" onchange="refreshOutputUrls()">
-                                </div>
-                                <div class="col-md-12 mt-2">
-                                    <label for="program_number" class="form-label small">MPEG-TS Program Number</label>
-                                    <input id="program_number" type="number" class="form-control form-control-sm" value="1">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="bg-primary-subtle p-3 rounded h-100 border border-primary-subtle">
+                                    <label class="form-label fw-bold">Output URLs</label>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-12">
+                                            <label for="multicast" class="form-label small">Base Multicast IP</label>
+                                            <input id="multicast" class="form-control form-control-sm" placeholder="232.x.x.x" onchange="refreshOutputUrls()">
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="local_addr" class="form-label small">Local Interface Address</label>
+                                            <input id="local_addr" class="form-control form-control-sm" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>" onchange="refreshOutputUrls()">
+                                        </div>
+                                        <div class="col-12 mt-2">
+                                            <label for="program_number" class="form-label small">MPEG-TS Program Number</label>
+                                            <input id="program_number" type="number" class="form-control form-control-sm" value="1">
+                                        </div>
+                                    </div>
+                                    <div id="output_urls_container"></div>
                                 </div>
                             </div>
-                            <div id="output_urls_container"></div>
-                        </div>
 
-                        <div class="bg-secondary-subtle p-3 rounded border border-secondary-subtle">
-                            <label class="form-label fw-bold">PID Remapping</label>
-                            <div class="row g-2 mb-2">
-                                <div class="col-6">
-                                    <label for="pid_pmt" class="form-label small">PMT PID</label>
-                                    <input id="pid_pmt" class="form-control form-control-sm" value="1906">
-                                </div>
-                                <div class="col-6">
-                                    <label for="pid_video" class="form-label small">Video PID</label>
-                                    <input id="pid_video" class="form-control form-control-sm" value="400">
-                                </div>
-                            </div>
-                            <div class="row g-2">
-                                <div class="col-6">
-                                    <label for="pid_aac" class="form-label small">AAC Audio PID</label>
-                                    <input id="pid_aac" class="form-control form-control-sm" value="483">
-                                </div>
-                                <div class="col-6">
-                                    <label for="pid_ac3" class="form-label small">AC3 Audio PID</label>
-                                    <input id="pid_ac3" class="form-control form-control-sm" value="482">
+                            <div class="col-md-6">
+                                <div class="bg-secondary-subtle p-3 rounded h-100 border border-secondary-subtle">
+                                    <label class="form-label fw-bold">PID Remapping</label>
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-12">
+                                            <label for="pid_pmt" class="form-label small">PMT PID</label>
+                                            <input id="pid_pmt" class="form-control form-control-sm" value="1906">
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="pid_video" class="form-label small">Video PID</label>
+                                            <input id="pid_video" class="form-control form-control-sm" value="400">
+                                        </div>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-12">
+                                            <label for="pid_aac" class="form-label small">AAC Audio PID</label>
+                                            <input id="pid_aac" class="form-control form-control-sm" value="483">
+                                        </div>
+                                        <div class="col-12">
+                                            <label for="pid_ac3" class="form-label small">AC3 Audio PID</label>
+                                            <input id="pid_ac3" class="form-control form-control-sm" value="482">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
