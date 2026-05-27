@@ -319,7 +319,14 @@ require_once 'config.php';
 
                     if (stream.type === 'inca') {
                         statusBadge = '<span class="badge bg-info">INCA</span>';
-                        actions = `<button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Instances (${stream.instances.length})</button>`;
+
+                        const actionsInca = `
+                            <button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Instances (${stream.instances.length})</button>
+                            <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'start', 'inca')">Start</button>
+                            <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'stop', 'inca')">Stop</button>
+                            <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'restart', 'inca')">Restart</button>
+                        `;
+                        actions = actionsInca;
 
                         // Construct INCA URL with embedded auth
                         const incaUrl = `http://${stream.server_user}:${stream.server_pass}@${stream.server_address}/controlpanel?deviceid=1`;
@@ -568,13 +575,14 @@ require_once 'config.php';
         }
     }
 
-    async function streamAction(serverKey, streamId, action) {
-        if (!confirm(`Are you sure you want to ${action} this stream?`)) return;
+    async function streamAction(serverKey, streamId, action, type = 'bitstreams') {
+        if (!confirm(`Are you sure you want to ${action} this ${type} stream?`)) return;
 
         const form = new FormData();
         form.append("server_key", serverKey);
         form.append("stream_id", streamId);
         form.append("action", action);
+        form.append("type", type);
 
         try {
             const response = await fetch("api/stream_action.php", { method: "POST", body: form });

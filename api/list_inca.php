@@ -83,6 +83,7 @@ foreach ($hosts as $key => $host) {
 
             $enriched_data[strtolower($name)] = [
                 'lid' => $o['lid'],
+                'uuid' => $o['id'],
                 'source' => $source,
                 'filter' => $o['sourceFilter'] ?? '',
                 'outputs_detailed' => $outputs_detailed
