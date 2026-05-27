@@ -1,5 +1,23 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/AzureADSSO.php';
+
+function checkPermission($permission)
+{
+    global $CONFIG;
+    $auth = new Auth($CONFIG);
+    if (!isset($_SESSION['user_id'])) {
+        http_response_code(401);
+        echo json_encode(["error" => "Unauthorized"]);
+        exit;
+    }
+    if (!$auth->hasPermission($permission)) {
+        http_response_code(403);
+        echo json_encode(["error" => "Forbidden: Missing $permission permission"]);
+        exit;
+    }
+}
 
 function bsAuth($tokenId, $tokenSecret)
 {

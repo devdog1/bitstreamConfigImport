@@ -3,6 +3,8 @@ require_once '../functions.php';
 
 header("Content-Type: application/json");
 
+checkPermission('bitstream.view');
+
 $serverKey = $_GET['server_key'] ?? '';
 $streamId = $_GET['stream_id'] ?? '';
 $page = $_GET['page'] ?? 1;

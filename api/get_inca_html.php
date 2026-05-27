@@ -1,6 +1,8 @@
 <?php
 require_once '../functions.php';
 
+checkPermission('bitstream.view');
+
 header("Content-Type: text/html");
 
 $serverKey = $_GET['server_key'] ?? '';

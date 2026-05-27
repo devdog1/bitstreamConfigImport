@@ -1,5 +1,15 @@
 <?php
 require_once 'config.php';
+require_once 'Auth.php';
+require_once 'AzureADSSO.php';
+
+$auth = new Auth($CONFIG);
+$auth->requireLogin();
+
+if (!$auth->hasPermission('bitstream.edit')) {
+    http_response_code(403);
+    die("Access Denied: You do not have the 'bitstream.edit' permission.");
+}
 ?>
 
 <!doctype html>
@@ -28,6 +38,7 @@ require_once 'config.php';
         <div class="navbar-nav">
             <a class="nav-link active" href="index.php">Migration</a>
             <a class="nav-link" href="overview.php">Overview</a>
+            <a class="nav-link" href="logout.php">Logout (<?= htmlspecialchars($auth->user()['name']) ?>)</a>
         </div>
     </div>
 </nav>

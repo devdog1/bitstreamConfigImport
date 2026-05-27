@@ -1,6 +1,8 @@
 <?php
 require_once '../functions.php';
 
+checkPermission('bitstream.view');
+
 $serverKey = $_GET['server_key'] ?? '';
 $path = $_GET['path'] ?? '';
 

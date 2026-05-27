@@ -3,6 +3,8 @@ require_once '../functions.php';
 
 header("Content-Type: application/json");
 
+checkPermission('bitstream.edit');
+
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     http_response_code(405);
     echo json_encode(["error" => "Method Not Allowed"]);
