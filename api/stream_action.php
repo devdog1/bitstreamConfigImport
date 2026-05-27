@@ -53,15 +53,19 @@ if ($type === 'bitstreams') {
     $pass = $host['password'];
 
     function performIncaAction($action, $address, $stream_id, $user, $pass) {
-        // 1. Get current data
-        $data = incaApiCall($address, "/dvp/streams/ip/outputs/{$stream_id}", $user, $pass);
-        if (!$data) return ["code" => 500, "response" => "Could not fetch current INCA output state"];
+        // 1. Get current data as raw string to handle empty objects correctly
+        $raw = incaRawCall($address, "/dvp/streams/ip/outputs/{$stream_id}", $user, $pass);
+        if (!$raw) return ["code" => 500, "response" => "Could not fetch current INCA output state"];
+
+        // Use object-based decoding to distinguish between {} and []
+        $data = json_decode($raw, false);
+        if (!$data) return ["code" => 500, "response" => "Failed to decode INCA output state"];
 
         // 2. Modify enabled flag on all streams
         $newState = ($action === 'start');
-        if (isset($data['streams'])) {
-            foreach ($data['streams'] as &$s) {
-                $s['enabled'] = $newState;
+        if (isset($data->streams) && is_array($data->streams)) {
+            foreach ($data->streams as $s) {
+                $s->enabled = $newState;
             }
         }
 
