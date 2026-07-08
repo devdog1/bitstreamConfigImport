@@ -37,6 +37,7 @@ if (!$auth->hasPermission('bitstream.edit')) {
         <a class="navbar-brand" href="index.php">Bitstreams Tool</a>
         <div class="navbar-nav">
             <a class="nav-link active" href="index.php">Migration</a>
+            <a class="nav-link" href="csv_import.php">CSV Import</a>
             <a class="nav-link" href="overview.php">Overview</a>
             <a class="nav-link" href="logout.php">Logout (<?= htmlspecialchars($auth->user()['name']) ?>)</a>
         </div>
