@@ -1,6 +1,7 @@
 <?php
 require_once '../functions.php';
 
+
 header("Content-Type: application/json");
 
 checkPermission('bitstream.edit');
@@ -16,11 +17,11 @@ $backup_content = $_POST["backup"] ?? "";
 $server_key = $_POST["server_key"] ?? "";
 
 $serverConfig = null;
-if (isset($CONFIG['servers'][$server_key])) {
-    $serverConfig = $CONFIG['servers'][$server_key];
+if (isset($config['servers'][$server_key])) {
+    $serverConfig = $config['servers'][$server_key];
 } elseif ($server_key === "custom") {
     $serverConfig = [
-        'localaddr' => $_POST["custom_localaddr"] ?? $CONFIG['localaddr']
+        'localaddr' => $_POST["custom_localaddr"] ?? $config['localaddr']
     ];
 }
 

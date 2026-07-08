@@ -1,9 +1,7 @@
 <?php
-require_once 'Auth.php';
-require_once 'AzureADSSO.php';
-require_once 'config.php';
+require_once 'autoload.php';
 
-$auth = new Auth($CONFIG);
+$auth = new Auth($config);
 $auth->logout();
 
 header("Location: login.php");

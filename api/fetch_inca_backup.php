@@ -1,6 +1,7 @@
 <?php
 require_once '../functions.php';
 
+
 header("Content-Type: application/json");
 
 checkPermission('bitstream.edit');
@@ -13,13 +14,13 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 $host_key = $_POST["host_key"] ?? "";
 
-if (!isset($CONFIG['inca_hosts'][$host_key])) {
+if (!isset($config['inca_hosts'][$host_key])) {
     http_response_code(400);
     echo json_encode(["error" => "Invalid INCA host"]);
     exit;
 }
 
-$host = $CONFIG['inca_hosts'][$host_key];
+$host = $config['inca_hosts'][$host_key];
 $xml = fetchIncaBackup($host['address'], $host['username'], $host['password']);
 
 if ($xml) {

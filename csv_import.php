@@ -1,9 +1,7 @@
 <?php
-require_once 'config.php';
-require_once 'Auth.php';
-require_once 'AzureADSSO.php';
+require_once 'autoload.php';
 
-$auth = new Auth($CONFIG);
+$auth = new Auth($config);
 $auth->requireLogin();
 
 if (!$auth->hasPermission('bitstream.edit')) {
@@ -53,20 +51,20 @@ if (!$auth->hasPermission('bitstream.edit')) {
         <div class="card-body">
             <h2 class="card-title mb-4">Bitstreams CSV Import</h2>
             <div class="row g-3">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label for="csv_file" class="form-label fw-bold">Upload CSV File</label>
                     <input type="file" id="csv_file" class="form-control" accept=".csv">
                     <div class="form-text">
-                        Expected format: Source Multicast, Program Number, Source Name, Output Multicast, Starting Port, PMT PID, Video PID, AAC PID, AC3 PID, Template ID
+                        Format: Source MC, Prog #, Name, Output MC, Start Port, [PIDs...]
                     </div>
                 </div>
                 <div class="col-md-3">
                     <label for="server_select" class="form-label fw-bold">Bitstreams Server</label>
                     <select id="server_select" class="form-select" onchange="onServerChange()">
                         <option value="">Select a server...</option>
-                        <?php foreach ($CONFIG['servers'] as $key => $server): ?>
+                        <?php foreach ($config['servers'] as $key => $server): ?>
                             <option value="<?= htmlspecialchars($key) ?>"
-                                    data-localaddr="<?= htmlspecialchars($server['localaddr'] ?? $CONFIG['localaddr']) ?>">
+                                    data-localaddr="<?= htmlspecialchars($server['localaddr'] ?? $config['localaddr']) ?>">
                                 <?= htmlspecialchars($server['name']) ?> (<?= htmlspecialchars($server['address']) ?>)
                             </option>
                         <?php endforeach; ?>
@@ -74,12 +72,18 @@ if (!$auth->hasPermission('bitstream.edit')) {
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label for="local_addr" class="form-label fw-bold">Local Interface Address</label>
-                    <input id="local_addr" class="form-control" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>">
+                    <label for="template_select" class="form-label fw-bold">Global Template</label>
+                    <select id="template_select" class="form-select">
+                        <option value="">Select a server first...</option>
+                    </select>
                 </div>
                 <div class="col-md-2">
+                    <label for="local_addr" class="form-label fw-bold">Local Interface Address</label>
+                    <input id="local_addr" class="form-control" value="<?= htmlspecialchars($config['localaddr']) ?>">
+                </div>
+                <div class="col-md-1">
                     <label for="region" class="form-label fw-bold">Region</label>
-                    <input id="region" class="form-control" value="<?= htmlspecialchars($CONFIG['default_region']) ?>">
+                    <input id="region" class="form-control" value="<?= htmlspecialchars($config['default_region']) ?>">
                 </div>
             </div>
 
@@ -113,7 +117,7 @@ if (!$auth->hasPermission('bitstream.edit')) {
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Verify and Edit Data</h5>
-                <button class="btn btn-primary" onclick="pushToBitstreams()" id="pushBtn">
+                <button class="btn btn-primary" onclick="pushAllToBitstreams()" id="pushAllBtn">
                     <i class="bi bi-cloud-upload me-2"></i>Push All to Bitstreams
                 </button>
             </div>
@@ -131,8 +135,8 @@ if (!$auth->hasPermission('bitstream.edit')) {
                                 <th>Video</th>
                                 <th>AAC</th>
                                 <th>AC3</th>
-                                <th>Template ID</th>
                                 <th>Status</th>
+                                <th>Action</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -169,7 +173,6 @@ if (!$auth->hasPermission('bitstream.edit')) {
             const line = lines[i].trim();
             if (!line) continue;
 
-            // Robust CSV parsing for comma-separated values with optional quotes
             const cols = [];
             let current = "";
             let inQuotes = false;
@@ -186,9 +189,8 @@ if (!$auth->hasPermission('bitstream.edit')) {
             }
             cols.push(current.trim());
 
-            if (cols.length < 5) continue;
+            if (cols.length < 4) continue;
 
-            // Skip header if present
             if (i === 0 && (cols[0].toLowerCase().includes("source") || cols[2].toLowerCase().includes("name"))) {
                 continue;
             }
@@ -203,7 +205,6 @@ if (!$auth->hasPermission('bitstream.edit')) {
                 pid_video: cols[6] || '400',
                 pid_aac: cols[7] || '483',
                 pid_ac3: cols[8] || '482',
-                template_id: cols[9] || '13',
                 status: 'Pending'
             });
         }
@@ -244,13 +245,19 @@ if (!$auth->hasPermission('bitstream.edit')) {
             const td7 = document.createElement('td'); td7.appendChild(createInput('pid_video', 'number', 'width: 70px'));
             const td8 = document.createElement('td'); td8.appendChild(createInput('pid_aac', 'number', 'width: 70px'));
             const td9 = document.createElement('td'); td9.appendChild(createInput('pid_ac3', 'number', 'width: 70px'));
-            const td10 = document.createElement('td'); td10.appendChild(createInput('template_id', 'number', 'width: 70px'));
 
             const tdStatus = document.createElement('td');
             tdStatus.className = 'status-cell';
             tdStatus.textContent = row.status;
 
-            [td1, td2, td3, td4, td5, td6, td7, td8, td9, td10, tdStatus].forEach(td => tr.appendChild(td));
+            const tdAction = document.createElement('td');
+            const pushBtn = document.createElement('button');
+            pushBtn.className = 'btn btn-sm btn-outline-primary';
+            pushBtn.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Push';
+            pushBtn.onclick = () => pushRow(index);
+            tdAction.appendChild(pushBtn);
+
+            [td1, td2, td3, td4, td5, td6, td7, td8, td9, tdStatus, tdAction].forEach(td => tr.appendChild(td));
             tbody.appendChild(tr);
         });
     }
@@ -278,9 +285,11 @@ if (!$auth->hasPermission('bitstream.edit')) {
 
     async function fetchTemplates() {
         const select = document.getElementById("server_select");
+        const templateSelect = document.getElementById("template_select");
         let serverKey = select.value;
         if (!serverKey) return;
 
+        templateSelect.innerHTML = "<option>Loading templates...</option>";
         templatesLoading = true;
         let form = new FormData();
         form.append("server_key", serverKey);
@@ -295,84 +304,98 @@ if (!$auth->hasPermission('bitstream.edit')) {
         try {
             let response = await fetch("api/templates.php", { method: "POST", body: form });
             let result = await response.json();
+
+            templateSelect.innerHTML = '<option value="">Select a template...</option>';
             if (result && result.data && Array.isArray(result.data.list)) {
                 currentTemplates = result.data.list;
+                currentTemplates.forEach(t => {
+                    let opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name;
+                    templateSelect.appendChild(opt);
+                });
             }
         } catch (e) {
             console.error("Error fetching templates:", e);
+            templateSelect.innerHTML = "<option>Error loading templates</option>";
         } finally {
             templatesLoading = false;
         }
     }
 
-    async function pushToBitstreams() {
+    async function pushRow(index) {
         const serverKey = document.getElementById("server_select").value;
-        if (!serverKey) {
-            alert("Please select a Bitstreams server first.");
-            return;
-        }
+        const templateId = document.getElementById("template_select").value;
 
-        if (templatesLoading) {
-            alert("Please wait while templates are loading...");
-            return;
-        }
+        if (!serverKey) { alert("Please select a Bitstreams server first."); return; }
+        if (!templateId) { alert("Please select a global template."); return; }
+        if (templatesLoading) { alert("Please wait while templates are loading..."); return; }
 
-        const pushBtn = document.getElementById("pushBtn");
+        const row = csvData[index];
+        const statusCell = document.querySelectorAll('.status-cell')[index];
+        const actionTd = statusCell.nextElementSibling;
+        const pushBtn = actionTd.querySelector('button');
+
+        statusCell.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Pushing...';
         pushBtn.disabled = true;
 
         const localAddr = document.getElementById("local_addr").value;
         const region = document.getElementById("region").value;
 
-        for (let i = 0; i < csvData.length; i++) {
-            const row = csvData[i];
-            const statusCell = document.querySelectorAll('.status-cell')[i];
-            statusCell.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Pushing...';
+        const payload = generatePayload(row, localAddr, region, templateId);
 
-            // Generate Payload
-            const payload = generatePayload(row, localAddr, region);
+        let form = new FormData();
+        form.append("server_key", serverKey);
+        form.append("payload", JSON.stringify(payload));
 
-            let form = new FormData();
-            form.append("server_key", serverKey);
-            form.append("payload", JSON.stringify(payload));
-
-            if (serverKey === "custom") {
-                form.append("custom_protocol", document.getElementById("protocol_custom").value);
-                form.append("custom_address", document.getElementById("server_custom").value);
-                form.append("custom_token_id", document.getElementById("token_id_custom").value);
-                form.append("custom_token_secret", document.getElementById("token_secret_custom").value);
-            }
-
-            try {
-                let response = await fetch("api/push.php", { method: "POST", body: form });
-                let result = await response.json();
-
-                if (result.code >= 200 && result.code < 300) {
-                    let bsResponse = {};
-                    try { bsResponse = JSON.parse(result.response); } catch(e) {}
-                    if (bsResponse.err_code === 0) {
-                        statusCell.innerHTML = '<span class="badge bg-success">Success</span>';
-                        row.status = 'Success';
-                    } else {
-                        statusCell.innerHTML = `<span class="badge bg-danger" title="${escapeHtml(bsResponse.err_message || 'Unknown error')}">Failed</span>`;
-                        row.status = 'Failed';
-                    }
-                } else {
-                    statusCell.innerHTML = '<span class="badge bg-danger">HTTP Error</span>';
-                    row.status = 'Failed';
-                }
-            } catch (e) {
-                statusCell.innerHTML = '<span class="badge bg-danger">Request Failed</span>';
-                row.status = 'Failed';
-            }
+        if (serverKey === "custom") {
+            form.append("custom_protocol", document.getElementById("protocol_custom").value);
+            form.append("custom_address", document.getElementById("server_custom").value);
+            form.append("custom_token_id", document.getElementById("token_id_custom").value);
+            form.append("custom_token_secret", document.getElementById("token_secret_custom").value);
         }
 
-        pushBtn.disabled = false;
+        try {
+            let response = await fetch("api/push.php", { method: "POST", body: form });
+            let result = await response.json();
+
+            if (result.code >= 200 && result.code < 300) {
+                let bsResponse = {};
+                try { bsResponse = JSON.parse(result.response); } catch(e) {}
+                if (bsResponse.err_code === 0) {
+                    statusCell.innerHTML = '<span class="badge bg-success">Success</span>';
+                    row.status = 'Success';
+                } else {
+                    statusCell.innerHTML = `<span class="badge bg-danger" title="${escapeHtml(bsResponse.err_message || 'Unknown error')}">Failed</span>`;
+                    row.status = 'Failed';
+                }
+            } else {
+                statusCell.innerHTML = '<span class="badge bg-danger">HTTP Error</span>';
+                row.status = 'Failed';
+            }
+        } catch (e) {
+            statusCell.innerHTML = '<span class="badge bg-danger">Request Failed</span>';
+            row.status = 'Failed';
+        } finally {
+            pushBtn.disabled = false;
+        }
     }
 
-    function generatePayload(row, localAddr, region) {
-        // Find template to know number of renditions
-        const templateId = parseInt(row.template_id);
-        const template = currentTemplates.find(t => parseInt(t.id) === templateId);
+    async function pushAllToBitstreams() {
+        const rowCount = csvData.length;
+        const pushAllBtn = document.getElementById("pushAllBtn");
+        pushAllBtn.disabled = true;
+
+        for (let i = 0; i < rowCount; i++) {
+            await pushRow(i);
+        }
+
+        pushAllBtn.disabled = false;
+    }
+
+    function generatePayload(row, localAddr, region, templateId) {
+        const tId = parseInt(templateId);
+        const template = currentTemplates.find(t => parseInt(t.id) === tId);
         const numRenditions = (template && template.output && template.output.video) ? template.output.video.length : 1;
 
         const outputUrls = [];
@@ -381,18 +404,14 @@ if (!$auth->hasPermission('bitstream.edit')) {
             outputUrls.push(`udp://${row.output_multicast}:${startPort + i}?localaddr=${localAddr}`);
         }
 
-        // Handle source multicast which might already have query params
         let sourceUrl = row.source_multicast;
-        if (sourceUrl.includes('?')) {
-            if (!sourceUrl.includes('localaddr=')) {
-                sourceUrl += `&localaddr=${localAddr}`;
-            }
-        } else {
-            sourceUrl += `?localaddr=${localAddr}`;
-        }
         if (!sourceUrl.startsWith('udp://')) {
             sourceUrl = 'udp://' + sourceUrl;
         }
+        if (sourceUrl.includes('?')) {
+            sourceUrl = sourceUrl.split('?')[0];
+        }
+        sourceUrl += `?sources=${localAddr}&prg=${row.program_number}`;
 
         return {
             "name": row.name,
@@ -406,7 +425,7 @@ if (!$auth->hasPermission('bitstream.edit')) {
             "playbacks": [
                 {
                     "output_name": row.name + "-web",
-                    "template_id": templateId,
+                    "template_id": tId,
                     "output_type": "http",
                     "http_settings": {
                         "visibility": "public",
@@ -417,7 +436,7 @@ if (!$auth->hasPermission('bitstream.edit')) {
                 },
                 {
                     "output_name": row.name + "-udp",
-                    "template_id": templateId,
+                    "template_id": tId,
                     "output_type": "multicast",
                     "mpegts_settings": {
                         "enable": true,

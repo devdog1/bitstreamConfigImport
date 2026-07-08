@@ -1,6 +1,7 @@
 <?php
 require_once '../functions.php';
 
+
 header("Content-Type: application/json");
 
 checkPermission('bitstream.edit');
@@ -17,13 +18,13 @@ $action = $_POST["action"] ?? ""; // "start", "stop", "restart"
 $type = $_POST["type"] ?? "bitstreams";
 
 if ($type === 'bitstreams') {
-    if (!isset($CONFIG['servers'][$server_key]) || empty($stream_id) || !in_array($action, ["start", "stop", "restart"])) {
+    if (!isset($config['servers'][$server_key]) || empty($stream_id) || !in_array($action, ["start", "stop", "restart"])) {
         http_response_code(400);
         echo json_encode(["error" => "Invalid Request"]);
         exit;
     }
 
-    $server = $CONFIG['servers'][$server_key];
+    $server = $config['servers'][$server_key];
     $address = $server['address'];
     $protocol = $server['protocol'] ?? 'http';
     $tokenId = $server['token_id'];
@@ -43,13 +44,13 @@ if ($type === 'bitstreams') {
         $result = performAction($action, $protocol, $address, $stream_id, $tokenId, $tokenSecret);
     }
 } else if ($type === 'inca') {
-    if (!isset($CONFIG['inca_hosts'][$server_key]) || empty($stream_id) || !in_array($action, ["start", "stop", "restart"])) {
+    if (!isset($config['inca_hosts'][$server_key]) || empty($stream_id) || !in_array($action, ["start", "stop", "restart"])) {
         http_response_code(400);
         echo json_encode(["error" => "Invalid Request (INCA)"]);
         exit;
     }
 
-    $host = $CONFIG['inca_hosts'][$server_key];
+    $host = $config['inca_hosts'][$server_key];
     $address = $host['address'];
     $user = $host['username'];
     $pass = $host['password'];

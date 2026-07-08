@@ -1,9 +1,7 @@
 <?php
-require_once 'config.php';
-require_once 'Auth.php';
-require_once 'AzureADSSO.php';
+require_once 'autoload.php';
 
-$auth = new Auth($CONFIG);
+$auth = new Auth($config);
 $auth->requireLogin();
 
 if (!$auth->hasPermission('bitstream.view')) {
@@ -210,8 +208,8 @@ if (!$auth->hasPermission('bitstream.view')) {
     let allStreamsData = [];
 
     const DEVICE_CONFIG = {
-        bitstreams: <?= json_encode(array_map(fn($s) => ['name' => $s['name']], $CONFIG['servers'])) ?>,
-        inca: <?= json_encode(array_map(fn($h) => ['name' => $h['name']], $CONFIG['inca_hosts'])) ?>
+        bitstreams: <?= json_encode(array_map(fn($s) => ['name' => $s['name']], $config['servers'])) ?>,
+        inca: <?= json_encode(array_map(fn($h) => ['name' => $h['name']], $config['inca_hosts'])) ?>
     };
 
     // Reset player when modal is closed

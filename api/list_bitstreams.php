@@ -1,6 +1,7 @@
 <?php
 require_once '../functions.php';
 
+
 header("Content-Type: application/json");
 
 checkPermission('bitstream.view');
@@ -14,7 +15,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 $all_streams = [];
 $specific_key = $_GET['key'] ?? null;
 
-$servers = $CONFIG['servers'];
+$servers = $config['servers'];
 if ($specific_key) {
     if (isset($servers[$specific_key])) {
         $servers = [$specific_key => $servers[$specific_key]];

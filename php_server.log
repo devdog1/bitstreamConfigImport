@@ -1,18 +1,33 @@
-[Wed Jul  8 15:50:20 2026] PHP 8.3.6 Development Server (http://localhost:8000) started
-[Wed Jul  8 15:50:35 2026] [::1]:33398 Accepted
-[Wed Jul  8 15:50:35 2026] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [2002] No such file or directory in /app/Auth.php:27
+[Wed Jul  8 16:34:35 2026] PHP 8.3.6 Development Server (http://localhost:8000) started
+[Wed Jul  8 16:34:38 2026] [::1]:38508 Accepted
+[Wed Jul  8 16:34:38 2026] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [2002] No such file or directory in /app/classes/Auth.php:27
 Stack trace:
-#0 /app/Auth.php(27): PDO->__construct()
-#1 /app/csv_import.php(6): Auth->__construct()
+#0 /app/classes/Auth.php(27): PDO->__construct()
+#1 /app/csv_import.php(4): Auth->__construct()
 #2 {main}
-  thrown in /app/Auth.php on line 27
-[Wed Jul  8 15:50:35 2026] [::1]:33398 [500]: GET /csv_import.php - Uncaught PDOException: SQLSTATE[HY000] [2002] No such file or directory in /app/Auth.php:27
+  thrown in /app/classes/Auth.php on line 27
+[Wed Jul  8 16:34:38 2026] [::1]:38508 [500]: GET /csv_import.php - Uncaught PDOException: SQLSTATE[HY000] [2002] No such file or directory in /app/classes/Auth.php:27
 Stack trace:
-#0 /app/Auth.php(27): PDO->__construct()
-#1 /app/csv_import.php(6): Auth->__construct()
+#0 /app/classes/Auth.php(27): PDO->__construct()
+#1 /app/csv_import.php(4): Auth->__construct()
 #2 {main}
-  thrown in /app/Auth.php on line 27
-[Wed Jul  8 15:50:35 2026] [::1]:33398 Closing
-[Wed Jul  8 15:51:04 2026] [::1]:48800 Accepted
-[Wed Jul  8 15:51:04 2026] [::1]:48800 [200]: GET /csv_import.php
-[Wed Jul  8 15:51:04 2026] [::1]:48800 Closing
+  thrown in /app/classes/Auth.php on line 27
+[Wed Jul  8 16:34:38 2026] [::1]:38508 Closing
+[Wed Jul  8 16:36:08 2026] [::1]:51914 Accepted
+[Wed Jul  8 16:36:08 2026] PHP Warning:  Undefined variable $auth in /app/csv_import.php on line 7
+[Wed Jul  8 16:36:08 2026] PHP Fatal error:  Uncaught Error: Call to a member function hasPermission() on null in /app/csv_import.php:7
+Stack trace:
+#0 {main}
+  thrown in /app/csv_import.php on line 7
+[Wed Jul  8 16:36:08 2026] [::1]:51914 [500]: GET /csv_import.php - Uncaught Error: Call to a member function hasPermission() on null in /app/csv_import.php:7
+Stack trace:
+#0 {main}
+  thrown in /app/csv_import.php on line 7
+[Wed Jul  8 16:36:08 2026] [::1]:51914 Closing
+[Wed Jul  8 16:37:54 2026] [::1]:42970 Accepted
+[Wed Jul  8 16:37:54 2026] PHP Parse error:  Unmatched '}' in /app/csv_import.php on line 10
+[Wed Jul  8 16:37:54 2026] [::1]:42970 [500]: GET /csv_import.php - Unmatched '}' in /app/csv_import.php on line 10
+[Wed Jul  8 16:37:54 2026] [::1]:42970 Closing
+[Wed Jul  8 16:39:55 2026] [::1]:49130 Accepted
+[Wed Jul  8 16:39:55 2026] [::1]:49130 [200]: GET /csv_import.php
+[Wed Jul  8 16:39:55 2026] [::1]:49130 Closing

@@ -1,9 +1,7 @@
 <?php
-require_once 'config.php';
-require_once 'Auth.php';
-require_once 'AzureADSSO.php';
+require_once 'autoload.php';
 
-$auth = new Auth($CONFIG);
+$auth = new Auth($config);
 $auth->requireLogin();
 
 if (!$auth->hasPermission('bitstream.edit')) {
@@ -62,7 +60,7 @@ if (!$auth->hasPermission('bitstream.edit')) {
                                 <label for="inca_host" class="form-label fw-bold">Fetch directly from INCA</label>
                                 <select id="inca_host" class="form-select mb-2">
                                     <option value="">Select INCA device...</option>
-                                    <?php foreach ($CONFIG['inca_hosts'] as $key => $host): ?>
+                                    <?php foreach ($config['inca_hosts'] as $key => $host): ?>
                                         <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($host['name']) ?> (<?= htmlspecialchars($host['address']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
@@ -102,13 +100,13 @@ if (!$auth->hasPermission('bitstream.edit')) {
                             <label for="server_select" class="form-label fw-bold">Bitstreams Server</label>
                             <select id="server_select" class="form-select" onchange="onServerChange()">
                                 <option value="">Select a server...</option>
-                                <?php foreach ($CONFIG['servers'] as $key => $server): ?>
+                                <?php foreach ($config['servers'] as $key => $server): ?>
                                     <option value="<?= htmlspecialchars($key) ?>"
-                                            data-localaddr="<?= htmlspecialchars($server['localaddr'] ?? $CONFIG['localaddr']) ?>">
+                                            data-localaddr="<?= htmlspecialchars($server['localaddr'] ?? $config['localaddr']) ?>">
                                         <?= htmlspecialchars($server['name']) ?> (<?= htmlspecialchars($server['address']) ?>)
                                     </option>
                                 <?php endforeach; ?>
-                                <option value="custom" data-localaddr="<?= htmlspecialchars($CONFIG['localaddr']) ?>">Custom Address...</option>
+                                <option value="custom" data-localaddr="<?= htmlspecialchars($config['localaddr']) ?>">Custom Address...</option>
                             </select>
                         </div>
                         <div id="custom_server_div" class="d-none bg-light p-2 mb-3 rounded border">
@@ -139,7 +137,7 @@ if (!$auth->hasPermission('bitstream.edit')) {
                         <div id="template_details" class="mb-3 small"></div>
                         <div class="mb-3">
                             <label for="region" class="form-label fw-bold">Region</label>
-                            <input id="region" class="form-control" value="<?= htmlspecialchars($CONFIG['default_region']) ?>">
+                            <input id="region" class="form-control" value="<?= htmlspecialchars($config['default_region']) ?>">
                         </div>
                     </div>
                     <div class="col-lg-6">
@@ -154,7 +152,7 @@ if (!$auth->hasPermission('bitstream.edit')) {
                                         </div>
                                         <div class="col-12">
                                             <label for="local_addr" class="form-label small">Local Interface Address</label>
-                                            <input id="local_addr" class="form-control form-control-sm" value="<?= htmlspecialchars($CONFIG['localaddr']) ?>" onchange="refreshOutputUrls()">
+                                            <input id="local_addr" class="form-control form-control-sm" value="<?= htmlspecialchars($config['localaddr']) ?>" onchange="refreshOutputUrls()">
                                         </div>
                                         <div class="col-12 mt-2">
                                             <label for="program_number" class="form-label small">MPEG-TS Program Number</label>

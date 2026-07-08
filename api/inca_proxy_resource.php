@@ -1,17 +1,18 @@
 <?php
 require_once '../functions.php';
 
+
 checkPermission('bitstream.view');
 
 $serverKey = $_GET['server_key'] ?? '';
 $path = $_GET['path'] ?? '';
 
-if (!$serverKey || !$path || !isset($CONFIG['inca_hosts'][$serverKey])) {
+if (!$serverKey || !$path || !isset($config['inca_hosts'][$serverKey])) {
     http_response_code(400);
     exit;
 }
 
-$host = $CONFIG['inca_hosts'][$serverKey];
+$host = $config['inca_hosts'][$serverKey];
 $url = "http://{$host['address']}/sys/svc/core/api/v1" . $path;
 
 $ch = curl_init();

@@ -1,6 +1,7 @@
 <?php
 require_once '../functions.php';
 
+
 header("Content-Type: application/json");
 
 checkPermission('bitstream.edit');
@@ -21,8 +22,8 @@ if ($server_key === "custom") {
     $protocol = $custom_protocol;
     $tokenId = $_POST["custom_token_id"] ?? "";
     $tokenSecret = $_POST["custom_token_secret"] ?? "";
-} elseif (isset($CONFIG['servers'][$server_key])) {
-    $server = $CONFIG['servers'][$server_key];
+} elseif (isset($config['servers'][$server_key])) {
+    $server = $config['servers'][$server_key];
     $address = $server['address'];
     $protocol = $server['protocol'] ?? 'http';
     $tokenId = $server['token_id'];

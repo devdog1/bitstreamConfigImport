@@ -1,6 +1,7 @@
 <?php
 require_once '../functions.php';
 
+
 checkPermission('bitstream.view');
 
 header("Content-Type: text/html");
@@ -8,13 +9,13 @@ header("Content-Type: text/html");
 $serverKey = $_GET['server_key'] ?? '';
 $progId = $_GET['prog_id'] ?? '';
 
-if (!$serverKey || !$progId || !isset($CONFIG['inca_hosts'][$serverKey])) {
+if (!$serverKey || !$progId || !isset($config['inca_hosts'][$serverKey])) {
     http_response_code(400);
     echo "Invalid request parameters.";
     exit;
 }
 
-$host = $CONFIG['inca_hosts'][$serverKey];
+$host = $config['inca_hosts'][$serverKey];
 $path = "/devices/1/programs/{$progId}";
 $html = incaRawCall($host['address'], $path, $host['username'], $host['password']);
 

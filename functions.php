@@ -1,12 +1,11 @@
 <?php
-require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/Auth.php';
-require_once __DIR__ . '/AzureADSSO.php';
+require_once __DIR__ . '/autoload.php';
+
 
 function checkPermission($permission)
 {
-    global $CONFIG;
-    $auth = new Auth($CONFIG);
+    global $config;
+    $auth = new Auth($config);
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(["error" => "Unauthorized"]);
@@ -80,9 +79,9 @@ function parseChannels($text)
 
 function generateSession($channel, $serverConfig = null)
 {
-    global $CONFIG;
+    global $config;
     $out = $channel["out"] ?: "232.0.0.1";
-    $localaddr = $serverConfig['localaddr'] ?? $CONFIG['localaddr'];
+    $localaddr = $serverConfig['localaddr'] ?? $config['localaddr'];
 
     $json = [
         "capture_card_input" => [
@@ -103,7 +102,7 @@ function generateSession($channel, $serverConfig = null)
         "failover_recovery_interval_seconds" => -1,
         "input_type" => "multicast_pull",
         "input_urls" => [[
-            "region" => $CONFIG['default_region'],
+            "region" => $config['default_region'],
             "urls" => [
                 "udp://{$channel["address"]}:{$channel["port"]}?sources={$channel["a"]}&localaddr={$localaddr}",
                 "udp://{$channel["address"]}:{$channel["port"]}?sources={$channel["b"]}&localaddr={$localaddr}"
@@ -113,7 +112,7 @@ function generateSession($channel, $serverConfig = null)
         "playbacks" => [
             [
                 "output_name" => $channel["name"] . "-web",
-                "template_id" => $CONFIG['default_template_id'],
+                "template_id" => $config['default_template_id'],
                 "output_type" => "http",
                 "http_settings" => [
                     "visibility" => "public",
@@ -127,7 +126,7 @@ function generateSession($channel, $serverConfig = null)
             ],
             [
                 "output_name" => $channel["name"] . "-udp",
-                "template_id" => $CONFIG['default_template_id'],
+                "template_id" => $config['default_template_id'],
                 "output_type" => "multicast",
                 "mpegts_settings" => [
                     "enable" => true,
@@ -184,7 +183,7 @@ function generateSession($channel, $serverConfig = null)
                     ]
                 ],
                 "output_urls" => [[
-                    "region" => $CONFIG['default_region'],
+                    "region" => $config['default_region'],
                     "urls" => [
                         "udp://{$out}:3001?localaddr={$localaddr}",
                         "udp://{$out}:3002?localaddr={$localaddr}",
@@ -196,7 +195,7 @@ function generateSession($channel, $serverConfig = null)
             ]
         ],
         "regions" => [
-            $CONFIG['default_region']
+            $config['default_region']
         ],
         "srt_passphrase" => ""
     ];
