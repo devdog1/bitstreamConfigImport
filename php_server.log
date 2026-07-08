@@ -1,0 +1,18 @@
+[Wed Jul  8 15:50:20 2026] PHP 8.3.6 Development Server (http://localhost:8000) started
+[Wed Jul  8 15:50:35 2026] [::1]:33398 Accepted
+[Wed Jul  8 15:50:35 2026] PHP Fatal error:  Uncaught PDOException: SQLSTATE[HY000] [2002] No such file or directory in /app/Auth.php:27
+Stack trace:
+#0 /app/Auth.php(27): PDO->__construct()
+#1 /app/csv_import.php(6): Auth->__construct()
+#2 {main}
+  thrown in /app/Auth.php on line 27
+[Wed Jul  8 15:50:35 2026] [::1]:33398 [500]: GET /csv_import.php - Uncaught PDOException: SQLSTATE[HY000] [2002] No such file or directory in /app/Auth.php:27
+Stack trace:
+#0 /app/Auth.php(27): PDO->__construct()
+#1 /app/csv_import.php(6): Auth->__construct()
+#2 {main}
+  thrown in /app/Auth.php on line 27
+[Wed Jul  8 15:50:35 2026] [::1]:33398 Closing
+[Wed Jul  8 15:51:04 2026] [::1]:48800 Accepted
+[Wed Jul  8 15:51:04 2026] [::1]:48800 [200]: GET /csv_import.php
+[Wed Jul  8 15:51:04 2026] [::1]:48800 Closing
