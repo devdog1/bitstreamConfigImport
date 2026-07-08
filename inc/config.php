@@ -1,11 +1,11 @@
 <?php
 /*
 |--------------------------------------------------------------------------
-| Application Configuration
+| Core Application Configuration (SSO, DB, etc.)
 |--------------------------------------------------------------------------
 */
 
-$config = [
+$coreConfig = [
     'db' => [
         'local' => [
             'dbhost' => 'localhost',

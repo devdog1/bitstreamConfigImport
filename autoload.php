@@ -6,10 +6,15 @@ spl_autoload_register(function ($class) {
     }
 });
 
+// Load Core Config
 require_once __DIR__ . '/inc/config.php';
+$config = $coreConfig ?? [];
 
-// Include local overrides from the same folder as the script
+// Load Local Config from the script directory
 $scriptDir = dirname($_SERVER['SCRIPT_FILENAME']);
 if (file_exists($scriptDir . '/config.local.php')) {
     include $scriptDir . '/config.local.php';
+    if (isset($localConfig) && is_array($localConfig)) {
+        $config = array_replace_recursive($config, $localConfig);
+    }
 }
