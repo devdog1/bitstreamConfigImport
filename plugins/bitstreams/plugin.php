@@ -58,6 +58,12 @@ PluginManager::getInstance()->registerRoute('bitstreams_api', function () {
 
 // 3. User-Context Dashboard Card Widget
 PluginManager::getInstance()->addAction('index_dashboard_widgets', function($userContext) {
+    if (function_exists('has_permission')) {
+        if (!has_permission('bitstreams_view') && !has_permission('bitstream.view')) {
+            return;
+        }
+    }
+
     $servers = bitstreams_get_servers();
     $incaHosts = bitstreams_get_inca_hosts();
     ?>
