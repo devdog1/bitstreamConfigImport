@@ -14,7 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 $all_streams = [];
 $specific_key = $_GET['key'] ?? null;
 
-$hosts = $CONFIG['inca_hosts'];
+$hosts = bitstreams_get_inca_hosts();
 if ($specific_key) {
     if (isset($hosts[$specific_key])) {
         $hosts = [$specific_key => $hosts[$specific_key]];

@@ -2,17 +2,29 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/AzureADSSO.php';
+require_once __DIR__ . '/plugins/bitstreams/models/bitstreams-model.php';
 
 function checkPermission($permission)
 {
     global $CONFIG;
+
+    if (function_exists('has_permission')) {
+        if (has_permission($permission) || has_permission('bitstreams_view') || has_permission('bitstreams_edit')) {
+            return;
+        }
+    }
+
     $auth = new Auth($CONFIG);
     if (!isset($_SESSION['user_id'])) {
         http_response_code(401);
         echo json_encode(["error" => "Unauthorized"]);
         exit;
     }
-    if (!$auth->hasPermission($permission)) {
+
+    // Map permission aliases if needed
+    $altPerm = str_replace(['bitstream.', 'bitstreams_'], ['bitstreams_', 'bitstream.'], $permission);
+
+    if (!$auth->hasPermission($permission) && !$auth->hasPermission($altPerm)) {
         http_response_code(403);
         echo json_encode(["error" => "Forbidden: Missing $permission permission"]);
         exit;
@@ -82,7 +94,10 @@ function generateSession($channel, $serverConfig = null)
 {
     global $CONFIG;
     $out = $channel["out"] ?: "232.0.0.1";
-    $localaddr = $serverConfig['localaddr'] ?? $CONFIG['localaddr'];
+
+    $localaddr = $serverConfig['localaddr'] ?? bitstreams_get_setting('localaddr', $CONFIG['localaddr'] ?? '172.17.233.130');
+    $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_region'] ?? 'Bitstreams');
+    $defaultTemplateId = (int)bitstreams_get_setting('default_template_id', $CONFIG['default_template_id'] ?? 13);
 
     $json = [
         "capture_card_input" => [
@@ -103,7 +118,7 @@ function generateSession($channel, $serverConfig = null)
         "failover_recovery_interval_seconds" => -1,
         "input_type" => "multicast_pull",
         "input_urls" => [[
-            "region" => $CONFIG['default_region'],
+            "region" => $defaultRegion,
             "urls" => [
                 "udp://{$channel["address"]}:{$channel["port"]}?sources={$channel["a"]}&localaddr={$localaddr}",
                 "udp://{$channel["address"]}:{$channel["port"]}?sources={$channel["b"]}&localaddr={$localaddr}"
@@ -113,7 +128,7 @@ function generateSession($channel, $serverConfig = null)
         "playbacks" => [
             [
                 "output_name" => $channel["name"] . "-web",
-                "template_id" => $CONFIG['default_template_id'],
+                "template_id" => $defaultTemplateId,
                 "output_type" => "http",
                 "http_settings" => [
                     "visibility" => "public",
@@ -127,7 +142,7 @@ function generateSession($channel, $serverConfig = null)
             ],
             [
                 "output_name" => $channel["name"] . "-udp",
-                "template_id" => $CONFIG['default_template_id'],
+                "template_id" => $defaultTemplateId,
                 "output_type" => "multicast",
                 "mpegts_settings" => [
                     "enable" => true,
@@ -184,7 +199,7 @@ function generateSession($channel, $serverConfig = null)
                     ]
                 ],
                 "output_urls" => [[
-                    "region" => $CONFIG['default_region'],
+                    "region" => $defaultRegion,
                     "urls" => [
                         "udp://{$out}:3001?localaddr={$localaddr}",
                         "udp://{$out}:3002?localaddr={$localaddr}",
@@ -196,7 +211,7 @@ function generateSession($channel, $serverConfig = null)
             ]
         ],
         "regions" => [
-            $CONFIG['default_region']
+            $defaultRegion
         ],
         "srt_passphrase" => ""
     ];

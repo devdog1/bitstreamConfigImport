@@ -15,12 +15,14 @@ $sessions = [];
 $backup_content = $_POST["backup"] ?? "";
 $server_key = $_POST["server_key"] ?? "";
 
+$servers = bitstreams_get_servers();
+
 $serverConfig = null;
-if (isset($CONFIG['servers'][$server_key])) {
-    $serverConfig = $CONFIG['servers'][$server_key];
+if (isset($servers[$server_key])) {
+    $serverConfig = $servers[$server_key];
 } elseif ($server_key === "custom") {
     $serverConfig = [
-        'localaddr' => $_POST["custom_localaddr"] ?? $CONFIG['localaddr']
+        'localaddr' => $_POST["custom_localaddr"] ?? bitstreams_get_setting('localaddr', '172.17.233.130')
     ];
 }
 

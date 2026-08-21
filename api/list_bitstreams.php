@@ -14,7 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 $all_streams = [];
 $specific_key = $_GET['key'] ?? null;
 
-$servers = $CONFIG['servers'];
+$servers = bitstreams_get_servers();
 if ($specific_key) {
     if (isset($servers[$specific_key])) {
         $servers = [$specific_key => $servers[$specific_key]];

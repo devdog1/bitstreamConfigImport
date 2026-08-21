@@ -15,13 +15,15 @@ $server_key = $_POST["server_key"] ?? "";
 $custom_address = $_POST["custom_address"] ?? "";
 $custom_protocol = $_POST["custom_protocol"] ?? "http";
 
+$servers = bitstreams_get_servers();
+
 if ($server_key === "custom") {
     $address = $custom_address;
     $protocol = $custom_protocol;
     $tokenId = $_POST["custom_token_id"] ?? "";
     $tokenSecret = $_POST["custom_token_secret"] ?? "";
-} elseif (isset($CONFIG['servers'][$server_key])) {
-    $server = $CONFIG['servers'][$server_key];
+} elseif (isset($servers[$server_key])) {
+    $server = $servers[$server_key];
     $address = $server['address'];
     $protocol = $server['protocol'] ?? 'http';
     $tokenId = $server['token_id'];
@@ -36,6 +38,5 @@ if (empty($address)) {
     exit;
 }
 
-// Updated path to /api/v3/template/
 $result = apiCall("{$protocol}://{$address}/api/v3/template/", $tokenId, $tokenSecret);
 echo $result['response'];
