@@ -2,31 +2,53 @@
 /**
  * Bitstreams Plugin Model
  * Handles database interaction for settings, servers, and INCA hosts inside plug_bitstreams_* namespace.
+ * Reuses singleton connections and implements request-level static caching to prevent DB connection exhaustion.
  */
 
 if (!defined('APP_ROOT') && !class_exists('PluginManager')) {
     // Prevent direct execution if required
 }
 
+// In-memory request caches
+$GLOBALS['BITSTREAMS_CACHE_SETTINGS'] = null;
+$GLOBALS['BITSTREAMS_CACHE_SERVERS'] = null;
+$GLOBALS['BITSTREAMS_CACHE_INCA_HOSTS'] = null;
+
+if (!function_exists('bitstreams_clear_cache')) {
+    function bitstreams_clear_cache($type = null) {
+        if ($type === 'settings' || $type === null) {
+            $GLOBALS['BITSTREAMS_CACHE_SETTINGS'] = null;
+        }
+        if ($type === 'servers' || $type === null) {
+            $GLOBALS['BITSTREAMS_CACHE_SERVERS'] = null;
+        }
+        if ($type === 'inca_hosts' || $type === null) {
+            $GLOBALS['BITSTREAMS_CACHE_INCA_HOSTS'] = null;
+        }
+    }
+}
+
 if (!function_exists('bitstreams_get_db_helper')) {
     function bitstreams_get_db_helper() {
-        if (class_exists('PluginDatabase')) {
-            return new PluginDatabase('bitstreams');
+        static $pdb = null;
+        if ($pdb === null && class_exists('PluginDatabase')) {
+            $pdb = new PluginDatabase('bitstreams');
         }
-        return null;
+        return $pdb;
     }
 }
 
 if (!function_exists('bitstreams_get_pdo')) {
     function bitstreams_get_pdo() {
-        if (function_exists('get_db_connection')) {
+        static $pdo = null;
+        if ($pdo === null && function_exists('get_db_connection')) {
             try {
-                return get_db_connection();
+                $pdo = get_db_connection();
             } catch (Exception $e) {
                 return null;
             }
         }
-        return null;
+        return $pdo;
     }
 }
 
@@ -77,8 +99,8 @@ if (!function_exists('bitstreams_ensure_tables')) {
             }
         }
 
-        bitstreams_seed_defaults();
         $ensured = true;
+        bitstreams_seed_defaults();
     }
 }
 
@@ -87,7 +109,8 @@ if (!function_exists('bitstreams_seed_defaults')) {
         global $CONFIG;
 
         // Seed Settings if empty
-        if (count(bitstreams_get_all_settings(false)) === 0) {
+        $currentSettings = bitstreams_get_all_settings(false);
+        if (count($currentSettings) === 0) {
             $defaultLocaladdr = $CONFIG['localaddr'] ?? '172.17.233.130';
             $defaultTemplateId = $CONFIG['default_template_id'] ?? 13;
             $defaultRegion = $CONFIG['default_region'] ?? 'Bitstreams';
@@ -98,7 +121,8 @@ if (!function_exists('bitstreams_seed_defaults')) {
         }
 
         // Seed Servers if empty
-        if (count(bitstreams_get_servers(false)) === 0) {
+        $currentServers = bitstreams_get_servers(false);
+        if (count($currentServers) === 0) {
             $defaultServers = $CONFIG['servers'] ?? [
                 'default' => [
                     'name' => 'Default Server',
@@ -116,7 +140,8 @@ if (!function_exists('bitstreams_seed_defaults')) {
         }
 
         // Seed INCA Hosts if empty
-        if (count(bitstreams_get_inca_hosts(false)) === 0) {
+        $currentHosts = bitstreams_get_inca_hosts(false);
+        if (count($currentHosts) === 0) {
             $defaultInca = $CONFIG['inca_hosts'] ?? [
                 'inca1' => [
                     'name' => 'INCA Host 1',
@@ -136,24 +161,8 @@ if (!function_exists('bitstreams_seed_defaults')) {
 
 if (!function_exists('bitstreams_get_setting')) {
     function bitstreams_get_setting($key, $default = null) {
-        bitstreams_ensure_tables();
-        $pdb = bitstreams_get_db_helper();
-        if ($pdb) {
-            $tb = $pdb->getTableName('settings');
-            $stmt = $pdb->query("SELECT setting_value FROM {$tb} WHERE setting_key = ?", [$key]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $row ? $row['setting_value'] : $default;
-        }
-
-        $pdo = bitstreams_get_pdo();
-        if ($pdo) {
-            $stmt = $pdo->prepare("SELECT setting_value FROM plug_bitstreams_settings WHERE setting_key = ?");
-            $stmt->execute([$key]);
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $row ? $row['setting_value'] : $default;
-        }
-
-        return $default;
+        $settings = bitstreams_get_all_settings();
+        return $settings[$key] ?? $default;
     }
 }
 
@@ -161,6 +170,8 @@ if (!function_exists('bitstreams_set_setting')) {
     function bitstreams_set_setting($key, $value) {
         bitstreams_ensure_tables();
         $pdb = bitstreams_get_db_helper();
+        $success = false;
+
         if ($pdb) {
             $tb = $pdb->getTableName('settings');
             $pdb->query("
@@ -168,29 +179,37 @@ if (!function_exists('bitstreams_set_setting')) {
                 VALUES (?, ?)
                 ON DUPLICATE KEY UPDATE setting_value = ?
             ", [$key, $value, $value]);
-            return true;
+            $success = true;
+        } else {
+            $pdo = bitstreams_get_pdo();
+            if ($pdo) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO plug_bitstreams_settings (setting_key, setting_value)
+                    VALUES (?, ?)
+                    ON DUPLICATE KEY UPDATE setting_value = ?
+                ");
+                $stmt->execute([$key, $value, $value]);
+                $success = true;
+            }
         }
 
-        $pdo = bitstreams_get_pdo();
-        if ($pdo) {
-            $stmt = $pdo->prepare("
-                INSERT INTO plug_bitstreams_settings (setting_key, setting_value)
-                VALUES (?, ?)
-                ON DUPLICATE KEY UPDATE setting_value = ?
-            ");
-            $stmt->execute([$key, $value, $value]);
-            return true;
+        if ($success) {
+            bitstreams_clear_cache('settings');
         }
-
-        return false;
+        return $success;
     }
 }
 
 if (!function_exists('bitstreams_get_all_settings')) {
     function bitstreams_get_all_settings($ensure = true) {
+        if ($GLOBALS['BITSTREAMS_CACHE_SETTINGS'] !== null) {
+            return $GLOBALS['BITSTREAMS_CACHE_SETTINGS'];
+        }
+
         if ($ensure) bitstreams_ensure_tables();
         $pdb = bitstreams_get_db_helper();
         $settings = [];
+
         if ($pdb) {
             $tb = $pdb->getTableName('settings');
             try {
@@ -198,6 +217,7 @@ if (!function_exists('bitstreams_get_all_settings')) {
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                     $settings[$row['setting_key']] = $row['setting_value'];
                 }
+                $GLOBALS['BITSTREAMS_CACHE_SETTINGS'] = $settings;
             } catch (Exception $e) {}
             return $settings;
         }
@@ -209,6 +229,7 @@ if (!function_exists('bitstreams_get_all_settings')) {
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                     $settings[$row['setting_key']] = $row['setting_value'];
                 }
+                $GLOBALS['BITSTREAMS_CACHE_SETTINGS'] = $settings;
             } catch (Exception $e) {}
         }
         return $settings;
@@ -217,9 +238,14 @@ if (!function_exists('bitstreams_get_all_settings')) {
 
 if (!function_exists('bitstreams_get_servers')) {
     function bitstreams_get_servers($ensure = true) {
+        if ($GLOBALS['BITSTREAMS_CACHE_SERVERS'] !== null) {
+            return $GLOBALS['BITSTREAMS_CACHE_SERVERS'];
+        }
+
         if ($ensure) bitstreams_ensure_tables();
         $pdb = bitstreams_get_db_helper();
         $servers = [];
+
         if ($pdb) {
             $tb = $pdb->getTableName('servers');
             try {
@@ -234,6 +260,7 @@ if (!function_exists('bitstreams_get_servers')) {
                         'localaddr' => $row['localaddr']
                     ];
                 }
+                $GLOBALS['BITSTREAMS_CACHE_SERVERS'] = $servers;
             } catch (Exception $e) {}
             return $servers;
         }
@@ -252,6 +279,7 @@ if (!function_exists('bitstreams_get_servers')) {
                         'localaddr' => $row['localaddr']
                     ];
                 }
+                $GLOBALS['BITSTREAMS_CACHE_SERVERS'] = $servers;
             } catch (Exception $e) {}
         }
 
@@ -275,6 +303,7 @@ if (!function_exists('bitstreams_save_server')) {
         $tokenId = $data['token_id'] ?? '';
         $tokenSecret = $data['token_secret'] ?? '';
         $localaddr = $data['localaddr'] ?? null;
+        $success = false;
 
         $pdb = bitstreams_get_db_helper();
         if ($pdb) {
@@ -290,27 +319,30 @@ if (!function_exists('bitstreams_save_server')) {
                     token_secret = VALUES(token_secret),
                     localaddr = VALUES(localaddr)
             ", [$server_key, $name, $address, $protocol, $tokenId, $tokenSecret, $localaddr]);
-            return true;
+            $success = true;
+        } else {
+            $pdo = bitstreams_get_pdo();
+            if ($pdo) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO plug_bitstreams_servers (server_key, name, address, protocol, token_id, token_secret, localaddr)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        name = VALUES(name),
+                        address = VALUES(address),
+                        protocol = VALUES(protocol),
+                        token_id = VALUES(token_id),
+                        token_secret = VALUES(token_secret),
+                        localaddr = VALUES(localaddr)
+                ");
+                $stmt->execute([$server_key, $name, $address, $protocol, $tokenId, $tokenSecret, $localaddr]);
+                $success = true;
+            }
         }
 
-        $pdo = bitstreams_get_pdo();
-        if ($pdo) {
-            $stmt = $pdo->prepare("
-                INSERT INTO plug_bitstreams_servers (server_key, name, address, protocol, token_id, token_secret, localaddr)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    name = VALUES(name),
-                    address = VALUES(address),
-                    protocol = VALUES(protocol),
-                    token_id = VALUES(token_id),
-                    token_secret = VALUES(token_secret),
-                    localaddr = VALUES(localaddr)
-            ");
-            $stmt->execute([$server_key, $name, $address, $protocol, $tokenId, $tokenSecret, $localaddr]);
-            return true;
+        if ($success) {
+            bitstreams_clear_cache('servers');
         }
-
-        return false;
+        return $success;
     }
 }
 
@@ -318,28 +350,38 @@ if (!function_exists('bitstreams_delete_server')) {
     function bitstreams_delete_server($server_key) {
         bitstreams_ensure_tables();
         $pdb = bitstreams_get_db_helper();
+        $success = false;
+
         if ($pdb) {
             $tb = $pdb->getTableName('servers');
             $pdb->query("DELETE FROM {$tb} WHERE server_key = ?", [$server_key]);
-            return true;
+            $success = true;
+        } else {
+            $pdo = bitstreams_get_pdo();
+            if ($pdo) {
+                $stmt = $pdo->prepare("DELETE FROM plug_bitstreams_servers WHERE server_key = ?");
+                $stmt->execute([$server_key]);
+                $success = true;
+            }
         }
 
-        $pdo = bitstreams_get_pdo();
-        if ($pdo) {
-            $stmt = $pdo->prepare("DELETE FROM plug_bitstreams_servers WHERE server_key = ?");
-            $stmt->execute([$server_key]);
-            return true;
+        if ($success) {
+            bitstreams_clear_cache('servers');
         }
-
-        return false;
+        return $success;
     }
 }
 
 if (!function_exists('bitstreams_get_inca_hosts')) {
     function bitstreams_get_inca_hosts($ensure = true) {
+        if ($GLOBALS['BITSTREAMS_CACHE_INCA_HOSTS'] !== null) {
+            return $GLOBALS['BITSTREAMS_CACHE_INCA_HOSTS'];
+        }
+
         if ($ensure) bitstreams_ensure_tables();
         $pdb = bitstreams_get_db_helper();
         $hosts = [];
+
         if ($pdb) {
             $tb = $pdb->getTableName('inca_hosts');
             try {
@@ -353,6 +395,7 @@ if (!function_exists('bitstreams_get_inca_hosts')) {
                         'snmp_community' => $row['snmp_community'] ?: 'public'
                     ];
                 }
+                $GLOBALS['BITSTREAMS_CACHE_INCA_HOSTS'] = $hosts;
             } catch (Exception $e) {}
             return $hosts;
         }
@@ -370,6 +413,7 @@ if (!function_exists('bitstreams_get_inca_hosts')) {
                         'snmp_community' => $row['snmp_community'] ?: 'public'
                     ];
                 }
+                $GLOBALS['BITSTREAMS_CACHE_INCA_HOSTS'] = $hosts;
             } catch (Exception $e) {}
         }
 
@@ -392,6 +436,7 @@ if (!function_exists('bitstreams_save_inca_host')) {
         $username = $data['username'] ?? 'admin';
         $password = $data['password'] ?? '';
         $snmpCommunity = $data['snmp_community'] ?? 'public';
+        $success = false;
 
         $pdb = bitstreams_get_db_helper();
         if ($pdb) {
@@ -406,26 +451,29 @@ if (!function_exists('bitstreams_save_inca_host')) {
                     password = VALUES(password),
                     snmp_community = VALUES(snmp_community)
             ", [$host_key, $name, $address, $username, $password, $snmpCommunity]);
-            return true;
+            $success = true;
+        } else {
+            $pdo = bitstreams_get_pdo();
+            if ($pdo) {
+                $stmt = $pdo->prepare("
+                    INSERT INTO plug_bitstreams_inca_hosts (host_key, name, address, username, password, snmp_community)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE
+                        name = VALUES(name),
+                        address = VALUES(address),
+                        username = VALUES(username),
+                        password = VALUES(password),
+                        snmp_community = VALUES(snmp_community)
+                ");
+                $stmt->execute([$host_key, $name, $address, $username, $password, $snmpCommunity]);
+                $success = true;
+            }
         }
 
-        $pdo = bitstreams_get_pdo();
-        if ($pdo) {
-            $stmt = $pdo->prepare("
-                INSERT INTO plug_bitstreams_inca_hosts (host_key, name, address, username, password, snmp_community)
-                VALUES (?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    name = VALUES(name),
-                    address = VALUES(address),
-                    username = VALUES(username),
-                    password = VALUES(password),
-                    snmp_community = VALUES(snmp_community)
-            ");
-            $stmt->execute([$host_key, $name, $address, $username, $password, $snmpCommunity]);
-            return true;
+        if ($success) {
+            bitstreams_clear_cache('inca_hosts');
         }
-
-        return false;
+        return $success;
     }
 }
 
@@ -433,19 +481,24 @@ if (!function_exists('bitstreams_delete_inca_host')) {
     function bitstreams_delete_inca_host($host_key) {
         bitstreams_ensure_tables();
         $pdb = bitstreams_get_db_helper();
+        $success = false;
+
         if ($pdb) {
             $tb = $pdb->getTableName('inca_hosts');
             $pdb->query("DELETE FROM {$tb} WHERE host_key = ?", [$host_key]);
-            return true;
+            $success = true;
+        } else {
+            $pdo = bitstreams_get_pdo();
+            if ($pdo) {
+                $stmt = $pdo->prepare("DELETE FROM plug_bitstreams_inca_hosts WHERE host_key = ?");
+                $stmt->execute([$host_key]);
+                $success = true;
+            }
         }
 
-        $pdo = bitstreams_get_pdo();
-        if ($pdo) {
-            $stmt = $pdo->prepare("DELETE FROM plug_bitstreams_inca_hosts WHERE host_key = ?");
-            $stmt->execute([$host_key]);
-            return true;
+        if ($success) {
+            bitstreams_clear_cache('inca_hosts');
         }
-
-        return false;
+        return $success;
     }
 }
