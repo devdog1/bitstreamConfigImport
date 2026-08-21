@@ -9,7 +9,6 @@ if (!defined('APP_ROOT') && !class_exists('PluginManager')) {
 }
 
 require_once __DIR__ . '/../models/bitstreams-model.php';
-require_once __DIR__ . '/../../../functions.php';
 
 $action = $_REQUEST['action'] ?? '';
 
@@ -27,7 +26,6 @@ function checkPluginPermission($perm) {
 function verifyCsrfIfPost() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (function_exists('csrf_verify')) {
-            // CSRF validation if token sent
             if (isset($_POST['csrf_token'])) {
                 csrf_verify();
             }
