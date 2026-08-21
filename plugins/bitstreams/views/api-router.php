@@ -740,6 +740,52 @@ switch ($action) {
         echo json_encode(["success" => true, "message" => "INCA host deleted successfully"]);
         exit;
 
+    /* =========================================================
+     * 4. VIDEO LINKS ENDPOINTS
+     * ========================================================= */
+
+    case 'get_video_links':
+        checkPluginPermission('bitstreams_view');
+        header('Content-Type: application/json');
+        echo json_encode(bitstreams_get_video_links());
+        exit;
+
+    case 'save_video_link':
+        checkPluginPermission('bitstreams_edit');
+        verifyCsrfIfPost();
+        header('Content-Type: application/json');
+
+        $res = bitstreams_save_video_link([
+            'id'       => $_POST['id'] ?? null,
+            'category' => $_POST['category'] ?? '',
+            'device'   => $_POST['device'] ?? '',
+            'purpose'  => $_POST['purpose'] ?? '',
+            'url'      => $_POST['url'] ?? ''
+        ]);
+
+        if ($res) {
+            echo json_encode(["success" => true, "message" => "Video link saved successfully"]);
+        } else {
+            http_response_code(400);
+            echo json_encode(["error" => "Failed to save video link. Check required fields."]);
+        }
+        exit;
+
+    case 'delete_video_link':
+        checkPluginPermission('bitstreams_edit');
+        verifyCsrfIfPost();
+        header('Content-Type: application/json');
+
+        $id = $_POST['id'] ?? $_GET['id'] ?? null;
+        if ($id) {
+            bitstreams_delete_video_link($id);
+            echo json_encode(["success" => true, "message" => "Video link deleted successfully"]);
+        } else {
+            http_response_code(400);
+            echo json_encode(["error" => "Missing video link ID"]);
+        }
+        exit;
+
     default:
         http_response_code(400);
         echo json_encode(["error" => "Invalid API action '{$action}'"]);
