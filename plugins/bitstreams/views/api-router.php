@@ -195,18 +195,25 @@ switch ($action) {
         exit;
 
     case 'stream_action':
+    case 'start':
+    case 'stop':
+    case 'restart':
         checkPluginPermission('bitstreams_edit');
         verifyCsrfIfPost();
         header('Content-Type: application/json');
 
         $sKey = $_POST['server_key'] ?? '';
         $streamId = $_POST['stream_id'] ?? '';
-        $act = $_POST['action'] ?? '';
         $type = $_POST['type'] ?? 'bitstreams';
 
-        if (!$sKey || !$streamId || !$act) {
+        $act = $_POST['stream_action'] ?? $_POST['act'] ?? $_POST['action'] ?? '';
+        if ($act === 'stream_action' || $act === '') {
+            $act = $_POST['stream_action'] ?? $_POST['act'] ?? $action;
+        }
+
+        if (!$sKey || !$streamId || !$act || !in_array($act, ['start', 'stop', 'restart'])) {
             http_response_code(400);
-            echo json_encode(["error" => "Missing required fields"]);
+            echo json_encode(["error" => "Missing required fields or invalid action '{$act}'"]);
             exit;
         }
 

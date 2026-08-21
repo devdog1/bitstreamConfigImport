@@ -13,7 +13,10 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 $server_key = $_POST["server_key"] ?? "";
 $stream_id = $_POST["stream_id"] ?? "";
-$action = $_POST["action"] ?? ""; // "start", "stop", "restart"
+$action = $_POST["stream_action"] ?? $_POST["action"] ?? ""; // "start", "stop", "restart"
+if ($action === 'stream_action') {
+    $action = $_POST["stream_action"] ?? $_POST["stream_act"] ?? $_POST["act"] ?? "";
+}
 $type = $_POST["type"] ?? "bitstreams";
 
 $servers = bitstreams_get_servers();

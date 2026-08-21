@@ -86,6 +86,41 @@ $deviceConfig = [
         </div>
     </div>
 
+    <!-- Search and Filter Bar -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-5">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                        <input type="text" id="streamSearchInput" class="form-control border-start-0" placeholder="Search streams by name, ID or status..." onkeyup="filterStreams()">
+                    </div>
+                </div>
+                <div class="col-md-3 col-6">
+                    <select id="serverFilterSelect" class="form-select" onchange="filterStreams()">
+                        <option value="">All Servers & Hosts</option>
+                        <?php foreach ($servers as $sKey => $s): ?>
+                            <option value="<?= htmlspecialchars($s['name']) ?>"><?= htmlspecialchars($s['name']) ?> (Bitstreams)</option>
+                        <?php endforeach; ?>
+                        <?php foreach ($incaHosts as $hKey => $h): ?>
+                            <option value="<?= htmlspecialchars($h['name']) ?>"><?= htmlspecialchars($h['name']) ?> (INCA)</option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3 col-6">
+                    <select id="statusFilterSelect" class="form-select" onchange="filterStreams()">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="down">Down / Disconnected</option>
+                    </select>
+                </div>
+                <div class="col-md-1 text-end">
+                    <button type="button" class="btn btn-outline-secondary w-100" onclick="resetFilters()" title="Reset Filters">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card p-3 shadow-sm border-0">
         <div class="table-responsive">
             <table id="streamsTable" class="table table-hover mb-0">
@@ -270,7 +305,7 @@ $deviceConfig = [
         `;
     }
 
-    function renderTable() {
+    function renderTable(dataToRender = allStreamsData) {
         if (dataTable) {
             dataTable.destroy();
         }
@@ -278,10 +313,10 @@ $deviceConfig = [
         const tbody = document.getElementById("streamsTableBody");
         tbody.innerHTML = "";
 
-        if (allStreamsData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No streams found.</td></tr>';
+        if (dataToRender.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No streams match active filters.</td></tr>';
         } else {
-            allStreamsData.forEach((stream, idx) => {
+            dataToRender.forEach((stream, idx) => {
                 const tr = document.createElement("tr");
 
                 let statusBadge = "";
@@ -344,6 +379,41 @@ $deviceConfig = [
         });
     }
 
+    function filterStreams() {
+        const query = (document.getElementById("streamSearchInput").value || "").toLowerCase();
+        const serverFilter = (document.getElementById("serverFilterSelect").value || "").toLowerCase();
+        const statusFilter = (document.getElementById("statusFilterSelect").value || "").toLowerCase();
+
+        const filtered = allStreamsData.filter(s => {
+            const matchQuery = !query ||
+                (s.name && s.name.toLowerCase().includes(query)) ||
+                (s.server_name && s.server_name.toLowerCase().includes(query)) ||
+                (s.status && s.status.toLowerCase().includes(query)) ||
+                (s.stream_id && s.stream_id.toLowerCase().includes(query));
+
+            const matchServer = !serverFilter ||
+                (s.server_name && s.server_name.toLowerCase() === serverFilter);
+
+            let matchStatus = true;
+            if (statusFilter === 'active') {
+                matchStatus = s.status === 'active' || s.status === 'inca_active';
+            } else if (statusFilter === 'down') {
+                matchStatus = s.status === 'inca_down' || s.status === 'disconnected' || s.status === 'down';
+            }
+
+            return matchQuery && matchServer && matchStatus;
+        });
+
+        renderTable(filtered);
+    }
+
+    function resetFilters() {
+        document.getElementById("streamSearchInput").value = "";
+        document.getElementById("serverFilterSelect").value = "";
+        document.getElementById("statusFilterSelect").value = "";
+        renderTable(allStreamsData);
+    }
+
     async function reloadDevice(key, platform) {
         updateDeviceUI(key, platform, 'pulling');
         try {
@@ -355,7 +425,7 @@ $deviceConfig = [
             allStreamsData.push(...data);
 
             updateDeviceUI(key, platform, 'completed', data.length);
-            renderTable();
+            filterStreams();
         } catch (e) {
             updateDeviceUI(key, platform, 'error');
             console.error(e);
@@ -401,7 +471,7 @@ $deviceConfig = [
 
         try {
             await Promise.all(pullTasks);
-            renderTable();
+            filterStreams();
         } catch (e) {
             const tbody = document.getElementById("streamsTableBody");
             tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error loading streams: ${e}</td></tr>`;
@@ -603,13 +673,14 @@ $deviceConfig = [
         }
     }
 
-    async function streamAction(serverKey, streamId, action, type = 'bitstreams') {
-        if (!confirm(`Are you sure you want to ${action} this ${type} stream?`)) return;
+    async function streamAction(serverKey, streamId, actionCmd, type = 'bitstreams') {
+        if (!confirm(`Are you sure you want to ${actionCmd} this ${type} stream?`)) return;
 
         const form = new FormData();
+        form.append("action", "stream_action");
+        form.append("stream_action", actionCmd);
         form.append("server_key", serverKey);
         form.append("stream_id", streamId);
-        form.append("action", action);
         form.append("type", type);
 
         try {
@@ -622,7 +693,7 @@ $deviceConfig = [
             } catch(e) {}
 
             if (result.code >= 200 && result.code < 300 && (bsResponse.err_code === 0 || bsResponse.err_code === undefined)) {
-                alert(`Action ${action} successful.`);
+                alert(`Action ${actionCmd} successful.`);
                 reloadDevice(serverKey, type);
             } else {
                 alert("Error: " + (bsResponse.err_message || result.response || "Action failed"));
