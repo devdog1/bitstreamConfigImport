@@ -69,18 +69,19 @@ switch ($action) {
             foreach ($streams as $stream) {
                 $status = $stream['status'] ?? 'unknown';
 
-                $allStreams[] = [
-                    'stream_id' => $stream['id'] ?? '',
-                    'name' => $stream['name'] ?? 'Unnamed',
-                    'status' => $status,
-                    'bitrate' => $stream['bitrate'] ?? null,
-                    'errors' => $stream['errors'] ?? null,
-                    'server_key' => $sKey,
-                    'server_name' => $server['name'],
-                    'server_address' => $address,
-                    'server_protocol' => $protocol,
-                    'type' => 'bitstreams'
-                ];
+                $item = $stream;
+                $item['stream_id'] = $stream['id'] ?? $stream['stream_id'] ?? '';
+                $item['name'] = $stream['name'] ?? 'Unnamed';
+                $item['status'] = $status;
+                $item['bitrate'] = $stream['bitrate'] ?? null;
+                $item['errors'] = $stream['errors'] ?? null;
+                $item['server_key'] = $sKey;
+                $item['server_name'] = $server['name'];
+                $item['server_address'] = $address;
+                $item['server_protocol'] = $protocol;
+                $item['type'] = 'bitstreams';
+
+                $allStreams[] = $item;
             }
         }
 
@@ -143,10 +144,11 @@ switch ($action) {
                 $hasSnmpMatch = !empty($instances);
 
                 if (!isset($groupedStreams[$hKey . '_' . $baseName])) {
+                    $uuidVal = $out['uuid'] ?? $out['id'] ?? '';
                     $enriched = [
-                        'uuid' => $out['uuid'] ?? '',
-                        'filter' => $out['filter'] ?? '',
-                        'outputs_detailed' => $out['outputs'] ?? [],
+                        'uuid' => $uuidVal,
+                        'filter' => $out['filter'] ?? $out['sourceFilter'] ?? '',
+                        'outputs_detailed' => $out['outputs'] ?? $out['streams'] ?? [],
                         'source' => isset($out['source_stream_id']) ? ($sourceMap[$out['source_stream_id']] ?? null) : null
                     ];
 

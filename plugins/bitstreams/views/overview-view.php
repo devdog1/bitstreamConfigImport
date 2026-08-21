@@ -166,6 +166,11 @@ $deviceConfig = [
     let dataTable = null;
     let allStreamsData = [];
 
+    function buildApiUrl(action, extraParams = '') {
+        const separator = API_BASE.includes('?') ? '&' : '?';
+        return `${API_BASE}${separator}action=${action}${extraParams ? '&' + extraParams : ''}`;
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
         detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
         incaDetailsModal = new bootstrap.Modal(document.getElementById('incaDetailsModal'));
@@ -248,11 +253,13 @@ $deviceConfig = [
                         ? '<span class="badge bg-danger">Down</span>'
                         : '<span class="badge bg-info">Active</span>';
 
+                    const incaUuid = (stream.enriched && stream.enriched.uuid) ? stream.enriched.uuid : stream.stream_id;
+
                     actions = `
                         <button class="btn btn-sm btn-info text-white me-1" onclick="viewIncaDetails(${idx})">Details</button>
-                        <button class="btn btn-sm btn-primary me-1" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'start', 'inca')">Start</button>
-                        <button class="btn btn-sm btn-danger me-1" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'stop', 'inca')">Stop</button>
-                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'restart', 'inca')">Restart</button>
+                        <button class="btn btn-sm btn-primary me-1" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'start', 'inca')">Start</button>
+                        <button class="btn btn-sm btn-danger me-1" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'stop', 'inca')">Stop</button>
+                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'restart', 'inca')">Restart</button>
                     `;
 
                     const incaUrl = `http://${stream.server_user}:${stream.server_pass}@${stream.server_address}/controlpanel?deviceid=1`;
@@ -262,14 +269,16 @@ $deviceConfig = [
                         ? '<span class="badge bg-success">Active</span>'
                         : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
 
+                    const sid = stream.stream_id || stream.id || '';
+
                     actions = `
-                        <button class="btn btn-sm btn-info text-white me-1" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
-                        <button class="btn btn-sm btn-primary me-1" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
-                        <button class="btn btn-sm btn-danger me-1" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
-                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
+                        <button class="btn btn-sm btn-info text-white me-1" onclick="viewDetails('${stream.server_key}', '${sid}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
+                        <button class="btn btn-sm btn-primary me-1" onclick="streamAction('${stream.server_key}', '${sid}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
+                        <button class="btn btn-sm btn-danger me-1" onclick="streamAction('${stream.server_key}', '${sid}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
+                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${sid}', 'restart')">Restart</button>
                     `;
 
-                    const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${stream.stream_id}`;
+                    const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${sid}`;
                     nameHtml = `<a href="${streamUrl}" target="_blank" class="text-decoration-none fw-bold">${stream.name}</a>`;
                 }
 
@@ -309,7 +318,7 @@ $deviceConfig = [
             pullTasks.push((async () => {
                 updateDeviceUI(key, 'bitstreams', 'pulling');
                 try {
-                    const r = await fetch(`${API_BASE}&action=list_bitstreams&key=${key}`);
+                    const r = await fetch(buildApiUrl('list_bitstreams', `key=${key}`));
                     const data = await r.json();
                     if (Array.isArray(data)) {
                         allStreamsData.push(...data);
@@ -327,7 +336,7 @@ $deviceConfig = [
             pullTasks.push((async () => {
                 updateDeviceUI(key, 'inca', 'pulling');
                 try {
-                    const r = await fetch(`${API_BASE}&action=list_inca&key=${key}`);
+                    const r = await fetch(buildApiUrl('list_inca', `key=${key}`));
                     const data = await r.json();
                     if (Array.isArray(data)) {
                         allStreamsData.push(...data);
@@ -389,7 +398,7 @@ $deviceConfig = [
         detailsModal.show();
 
         try {
-            const response = await fetch(`${API_BASE}&action=get_stream_details&server_key=${serverKey}&stream_id=${streamId}&page=1&limit=50`);
+            const response = await fetch(buildApiUrl('get_stream_details', `server_key=${serverKey}&stream_id=${streamId}&page=1&limit=50`));
             const data = await response.json();
 
             const streamData = data.stream;
@@ -570,7 +579,7 @@ $deviceConfig = [
         div.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Fetching live data...</div></div>';
 
         try {
-            const r = await fetch(`${API_BASE}&action=get_inca_html&server_key=${serverKey}&prog_id=${progId}`);
+            const r = await fetch(buildApiUrl('get_inca_html', `server_key=${serverKey}&prog_id=${progId}`));
             const html = await r.text();
             div.innerHTML = html;
         } catch(e) {

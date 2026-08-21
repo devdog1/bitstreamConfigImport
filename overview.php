@@ -293,11 +293,13 @@ $deviceConfig = [
                         ? '<span class="badge bg-danger">Down</span>'
                         : '<span class="badge bg-info">Active</span>';
 
+                    const incaUuid = (stream.enriched && stream.enriched.uuid) ? stream.enriched.uuid : stream.stream_id;
+
                     const actionsInca = `
                         <button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Details</button>
-                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'start', 'inca')">Start</button>
-                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'stop', 'inca')">Stop</button>
-                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.enriched ? stream.enriched.uuid : ''}', 'restart', 'inca')">Restart</button>
+                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'start', 'inca')">Start</button>
+                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'stop', 'inca')">Stop</button>
+                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'restart', 'inca')">Restart</button>
                     `;
                     actions = actionsInca;
 
@@ -308,14 +310,16 @@ $deviceConfig = [
                         ? '<span class="badge bg-success">Active</span>'
                         : (stream.status === 'disconnected' ? '<span class="badge bg-danger">Disconnected</span>' : `<span class="badge bg-secondary">${stream.status}</span>`);
 
+                    const sid = stream.stream_id || stream.id || '';
+
                     actions = `
-                        <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${stream.stream_id}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
-                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
-                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
-                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${stream.stream_id}', 'restart')">Restart</button>
+                        <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${sid}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
+                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${sid}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
+                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${sid}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
+                        <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${sid}', 'restart')">Restart</button>
                     `;
 
-                    const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${stream.stream_id}`;
+                    const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${sid}`;
                     nameHtml = `<a href="${streamUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
                 }
 
