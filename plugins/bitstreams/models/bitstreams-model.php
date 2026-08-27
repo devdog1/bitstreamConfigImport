@@ -1,7 +1,7 @@
 <?php
 /**
  * Bitstreams Plugin Model
- * Handles database interaction for settings, servers, INCA hosts, and Video Links inside plug_bitstreams_* namespace.
+ * Handles database interaction for settings, servers, INCA hosts, Video Links, and EIA Grid inside plug_bitstreams_* namespace.
  * Reuses singleton connections and implements request-level static caching to prevent DB connection exhaustion.
  * Also provides core Bitstreams & INCA API communication helper functions.
  */
@@ -100,6 +100,14 @@ if (!function_exists('bitstreams_ensure_tables')) {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             ");
+
+            $pdb->createTable('eia_grid', "
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                EIANum VARCHAR(50) NOT NULL,
+                CenterFreq VARCHAR(50) NOT NULL,
+                `Use` VARCHAR(100) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ");
         } else {
             $pdo = bitstreams_get_pdo();
             if ($pdo) {
@@ -125,10 +133,12 @@ if (!function_exists('bitstreams_seed_defaults')) {
             $defaultLocaladdr = $CONFIG['localaddr'] ?? '172.17.233.130';
             $defaultTemplateId = $CONFIG['default_template_id'] ?? 13;
             $defaultRegion = $CONFIG['default_region'] ?? 'Bitstreams';
+            $defaultDacAddress = '127.0.0.1';
 
             bitstreams_set_setting('localaddr', $defaultLocaladdr);
             bitstreams_set_setting('default_template_id', (string)$defaultTemplateId);
             bitstreams_set_setting('default_region', $defaultRegion);
+            bitstreams_set_setting('dacqueryAddress', $defaultDacAddress);
         }
 
         // Seed Servers if empty
@@ -165,6 +175,47 @@ if (!function_exists('bitstreams_seed_defaults')) {
 
             foreach ($defaultInca as $key => $h) {
                 bitstreams_save_inca_host($key, $h);
+            }
+        }
+
+        // Seed EIA Grid if empty
+        $eiaItems = bitstreams_get_eia_grid();
+        if (count($eiaItems) === 0) {
+            $sampleEIAs = [
+                ['EIANum' => '2', 'CenterFreq' => '57.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '3', 'CenterFreq' => '63.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '4', 'CenterFreq' => '69.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '5', 'CenterFreq' => '79.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '6', 'CenterFreq' => '85.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '7', 'CenterFreq' => '177.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '8', 'CenterFreq' => '183.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '9', 'CenterFreq' => '189.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '10', 'CenterFreq' => '195.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '11', 'CenterFreq' => '201.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '12', 'CenterFreq' => '207.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '13', 'CenterFreq' => '213.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '14', 'CenterFreq' => '123.00', 'Use' => 'Docsis'],
+                ['EIANum' => '15', 'CenterFreq' => '129.00', 'Use' => 'Docsis'],
+                ['EIANum' => '16', 'CenterFreq' => '135.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '17', 'CenterFreq' => '141.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '18', 'CenterFreq' => '147.00', 'Use' => 'Digital Video'],
+                ['EIANum' => '19', 'CenterFreq' => '153.00', 'Use' => 'Digital Video'],
+            ];
+
+            $pdb = bitstreams_get_db_helper();
+            if ($pdb) {
+                $tb = $pdb->getTableName('eia_grid');
+                foreach ($sampleEIAs as $e) {
+                    $pdb->query("INSERT INTO {$tb} (EIANum, CenterFreq, `Use`) VALUES (?, ?, ?)", [$e['EIANum'], $e['CenterFreq'], $e['Use']]);
+                }
+            } else {
+                $pdo = bitstreams_get_pdo();
+                if ($pdo) {
+                    $stmt = $pdo->prepare("INSERT INTO plug_bitstreams_eia_grid (EIANum, CenterFreq, `Use`) VALUES (?, ?, ?)");
+                    foreach ($sampleEIAs as $e) {
+                        $stmt->execute([$e['EIANum'], $e['CenterFreq'], $e['Use']]);
+                    }
+                }
             }
         }
     }
@@ -511,6 +562,36 @@ if (!function_exists('bitstreams_delete_inca_host')) {
             bitstreams_clear_cache('inca_hosts');
         }
         return $success;
+    }
+}
+
+/* =========================================================
+ * EIA GRID DB MODEL HELPERS
+ * ========================================================= */
+
+if (!function_exists('bitstreams_get_eia_grid')) {
+    function bitstreams_get_eia_grid() {
+        bitstreams_ensure_tables();
+        $pdb = bitstreams_get_db_helper();
+
+        if ($pdb) {
+            $tb = $pdb->getTableName('eia_grid');
+            try {
+                $stmt = $pdb->query("SELECT * FROM {$tb} ORDER BY CAST(CenterFreq AS DECIMAL(10,2)) ASC");
+                return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {}
+            return [];
+        }
+
+        $pdo = bitstreams_get_pdo();
+        if ($pdo) {
+            try {
+                $stmt = $pdo->query("SELECT * FROM plug_bitstreams_eia_grid ORDER BY CAST(CenterFreq AS DECIMAL(10,2)) ASC");
+                return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {}
+        }
+
+        return [];
     }
 }
 

@@ -12,6 +12,7 @@ require_once __DIR__ . '/../models/bitstreams-model.php';
 $localaddr = bitstreams_get_setting('localaddr', '172.17.233.130');
 $defaultTemplateId = bitstreams_get_setting('default_template_id', '13');
 $defaultRegion = bitstreams_get_setting('default_region', 'Bitstreams');
+$dacqueryAddress = bitstreams_get_setting('dacqueryAddress', '127.0.0.1');
 
 $servers = bitstreams_get_servers();
 $incaHosts = bitstreams_get_inca_hosts();
@@ -36,20 +37,25 @@ $apiUrl = function_exists('url_for') ? url_for('bitstreams_api') : 'index.php?ro
             <form id="globalSettingsForm" onsubmit="saveGlobalSettings(event)">
                 <?php if (function_exists('csrf_field')) csrf_field(); ?>
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="localaddr" class="form-label fw-bold">Default Local Interface Address</label>
                         <input type="text" class="form-control" id="localaddr" name="localaddr" value="<?= htmlspecialchars($localaddr) ?>" required>
-                        <div class="form-text">Server local interface address (e.g. 172.17.233.130)</div>
+                        <div class="form-text">Server local interface address</div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="default_template_id" class="form-label fw-bold">Default Bitstreams Template ID</label>
                         <input type="number" class="form-control" id="default_template_id" name="default_template_id" value="<?= htmlspecialchars($defaultTemplateId) ?>" required>
-                        <div class="form-text">Template ID used during initial session generation</div>
+                        <div class="form-text">Template ID for session generation</div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="default_region" class="form-label fw-bold">Default Region</label>
                         <input type="text" class="form-control" id="default_region" name="default_region" value="<?= htmlspecialchars($defaultRegion) ?>" required>
-                        <div class="form-text">Bitstreams target region (e.g. Bitstreams)</div>
+                        <div class="form-text">Bitstreams target region</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="dacqueryAddress" class="form-label fw-bold">DAC Query Address</label>
+                        <input type="text" class="form-control" id="dacqueryAddress" name="dacqueryAddress" value="<?= htmlspecialchars($dacqueryAddress) ?>" required>
+                        <div class="form-text">DAC STB API Address or Host</div>
                     </div>
                 </div>
                 <div class="mt-3 text-end">

@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: Bitstreams & INCA Stream Manager
- * Description: Convert INCA backups to Bitstreams sessions, monitor stream status via SNMP and Bitstreams REST API, control live streams, and manage Video URLs.
- * Version: 1.1.0
+ * Description: Convert INCA backups to Bitstreams sessions, monitor stream status via SNMP and Bitstreams REST API, control live streams, manage Video URLs, and view DAC Digital EIA Grid.
+ * Version: 1.2.0
  * Author: DevDog
  * Permissions: bitstreams_view, bitstreams_edit, bitstreams_settings, videoLinks_view, videoLinks_edit
  * Roles: manager:bitstreams_view,bitstreams_edit,bitstreams_settings,videoLinks_view,videoLinks_edit; operator:bitstreams_view,bitstreams_edit,videoLinks_view; viewer:bitstreams_view,videoLinks_view
@@ -24,6 +24,7 @@ PluginManager::getInstance()->addFilter('theme_nav_links', function ($links) {
         'children' => [
             ['label' => 'Stream Overview', 'icon' => 'fa-solid fa-chart-line', 'route' => 'bitstreams_overview', 'permission' => 'bitstreams_view'],
             ['label' => 'INCA Migration Tool', 'icon' => 'fa-solid fa-file-import', 'route' => 'bitstreams_migration', 'permission' => 'bitstreams_edit'],
+            ['label' => 'DAC Digital EIA Grid', 'icon' => 'fa-solid fa-table-cells', 'route' => 'bitstreams_dac_eia_grid', 'permission' => 'bitstreams_view'],
             ['label' => 'Video URL Manager', 'icon' => 'fa-solid fa-link', 'route' => 'bitstreams_video_links', 'permission' => 'bitstreams_view'],
             ['label' => 'Plugin Settings', 'icon' => 'fa-solid fa-sliders', 'route' => 'bitstreams_settings', 'permission' => 'bitstreams_settings']
         ]
@@ -44,6 +45,13 @@ PluginManager::getInstance()->registerRoute('bitstreams_migration', function () 
         die("Access Denied: Missing 'bitstreams_edit' permission.");
     }
     require_once __DIR__ . '/views/migration-view.php';
+});
+
+PluginManager::getInstance()->registerRoute('bitstreams_dac_eia_grid', function () {
+    if (function_exists('has_permission') && !has_permission('bitstreams_view')) {
+        die("Access Denied: Missing 'bitstreams_view' permission.");
+    }
+    require_once __DIR__ . '/views/dac-eia-grid-view.php';
 });
 
 PluginManager::getInstance()->registerRoute('bitstreams_video_links', function () {
