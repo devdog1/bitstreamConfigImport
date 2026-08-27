@@ -1,19 +1,18 @@
 <?php
-require_once 'config.php';
-require_once 'Auth.php';
-require_once 'AzureADSSO.php';
-require_once __DIR__ . '/plugins/bitstreams/models/bitstreams-model.php';
+/**
+ * Bitstreams Plugin Stream Overview View
+ */
 
-$auth = new Auth($CONFIG);
-$auth->requireLogin();
-
-if (!$auth->hasPermission('bitstream.view') && !$auth->hasPermission('bitstreams_view')) {
-    http_response_code(403);
-    die("Access Denied: You do not have the 'bitstreams_view' permission.");
+if (!defined('APP_ROOT') && !class_exists('PluginManager')) {
+    exit;
 }
+
+require_once __DIR__ . '/../models/bitstreams-model.php';
 
 $servers = bitstreams_get_servers();
 $incaHosts = bitstreams_get_inca_hosts();
+
+$apiUrl = function_exists('url_for') ? url_for('bitstreams_api') : 'index.php?route=bitstreams_api';
 
 $deviceConfig = [
     'bitstreams' => array_map(fn($s) => ['name' => $s['name']], $servers),
@@ -21,67 +20,20 @@ $deviceConfig = [
 ];
 ?>
 
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Stream Overview - Bitstreams Tool</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
-    <style>
-        .table-responsive {
-            min-height: 200px;
-        }
-        .inca-html-content {
-            font-family: sans-serif;
-            background: white;
-            padding: 15px;
-            border-radius: 4px;
-        }
-        .ts_view_table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 10px;
-            background: white;
-            border: 1px solid #dee2e6;
-        }
-        .ts_view_table td {
-            padding: 4px 8px;
-            border-bottom: 1px solid #eee;
-        }
-        .ts_titlerow { background: #f8f9fa; }
-        .ts_bitrate_cell { text-align: right; font-family: monospace; }
-        .ts_buttons { display: none; }
-    </style>
-</head>
-<body class="bg-light">
-
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="index.php">Bitstreams Tool</a>
-        <div class="navbar-nav">
-            <a class="nav-link" href="index.php">Migration</a>
-            <a class="nav-link active" href="overview.php">Overview</a>
-            <a class="nav-link" href="logout.php">Logout (<?= htmlspecialchars($auth->user()['name']) ?>)</a>
-        </div>
-    </div>
-</nav>
-
 <div class="container-fluid p-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Stream Overview</h2>
-        <button class="btn btn-outline-primary" onclick="loadStreams()">Refresh Status</button>
+        <h2><i class="fa-solid fa-chart-line text-primary me-2"></i>Stream Overview</h2>
+        <button class="btn btn-outline-primary" onclick="loadStreams()"><i class="fa-solid fa-rotate me-1"></i> Refresh Status</button>
     </div>
 
     <!-- Device Status Dashboard -->
     <div class="card mb-4 border-0 shadow-sm">
         <div class="card-header bg-white">
-            <h6 class="mb-0 fw-bold">Device Pull Status</h6>
+            <h6 class="mb-0 fw-bold"><i class="fa-solid fa-network-wired me-2 text-secondary"></i>Device Pull Status</h6>
         </div>
         <div class="card-body">
             <div id="deviceStatusList" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
-                <!-- Devices will be injected here -->
+                <!-- Devices injected via JS -->
             </div>
         </div>
     </div>
@@ -115,7 +67,9 @@ $deviceConfig = [
                     </select>
                 </div>
                 <div class="col-md-1 text-end">
-                    <button type="button" class="btn btn-outline-secondary w-100" onclick="resetFilters()" title="Reset Filters">Reset</button>
+                    <button type="button" class="btn btn-outline-secondary w-100" onclick="resetFilters()" title="Reset Filters">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -123,7 +77,7 @@ $deviceConfig = [
 
     <div class="card p-3 shadow-sm border-0">
         <div class="table-responsive">
-            <table id="streamsTable" class="table table-hover mb-0">
+            <table id="streamsTable" class="table table-hover mb-0 align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>Name</th>
@@ -174,7 +128,7 @@ $deviceConfig = [
                         </table>
                     </div>
                     <div class="tab-pane fade" id="incaTabSource">
-                        <div id="incaSourceContent" class="inca-html-content"></div>
+                        <div id="incaSourceContent" class="inca-html-content p-3 bg-white border rounded"></div>
                     </div>
                 </div>
             </div>
@@ -240,24 +194,32 @@ $deviceConfig = [
     </div>
 </div>
 
-<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-
 <script>
-    const detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
-    const incaDetailsModal = new bootstrap.Modal(document.getElementById('incaDetailsModal'));
+    const API_BASE = "<?= $apiUrl ?>";
+    const DEVICE_CONFIG = <?= json_encode($deviceConfig) ?>;
+
+    let detailsModal = null;
+    let incaDetailsModal = null;
     let dataTable = null;
     let allStreamsData = [];
 
-    const DEVICE_CONFIG = <?= json_encode($deviceConfig) ?>;
+    function buildApiUrl(action, extraParams = '') {
+        const separator = API_BASE.includes('?') ? '&' : '?';
+        return `${API_BASE}${separator}action=${action}${extraParams ? '&' + extraParams : ''}`;
+    }
 
-    document.getElementById('detailsModal').addEventListener('hidden.bs.modal', () => {
-        const video = document.getElementById('videoPlayer');
-        video.pause();
-        video.innerHTML = "";
-        video.load();
+    document.addEventListener("DOMContentLoaded", () => {
+        detailsModal = new bootstrap.Modal(document.getElementById('detailsModal'));
+        incaDetailsModal = new bootstrap.Modal(document.getElementById('incaDetailsModal'));
+
+        document.getElementById('detailsModal').addEventListener('hidden.bs.modal', () => {
+            const video = document.getElementById('videoPlayer');
+            video.pause();
+            video.innerHTML = "";
+            video.load();
+        });
+
+        loadStreams();
     });
 
     function updateDeviceUI(key, platform, status, count = 0) {
@@ -306,8 +268,8 @@ $deviceConfig = [
     }
 
     function renderTable(dataToRender = allStreamsData) {
-        if (dataTable) {
-            dataTable.destroy();
+        if (dataTable && typeof $.fn.DataTable !== 'undefined' && $.fn.DataTable.isDataTable('#streamsTable')) {
+            $('#streamsTable').DataTable().destroy();
         }
 
         const tbody = document.getElementById("streamsTableBody");
@@ -330,16 +292,15 @@ $deviceConfig = [
 
                     const incaUuid = (stream.enriched && stream.enriched.uuid) ? stream.enriched.uuid : stream.stream_id;
 
-                    const actionsInca = `
-                        <button class="btn btn-sm btn-info text-white" onclick="viewIncaDetails(${idx})">Details</button>
-                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'start', 'inca')">Start</button>
-                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'stop', 'inca')">Stop</button>
+                    actions = `
+                        <button class="btn btn-sm btn-info text-white me-1" onclick="viewIncaDetails(${idx})">Details</button>
+                        <button class="btn btn-sm btn-primary me-1" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'start', 'inca')">Start</button>
+                        <button class="btn btn-sm btn-danger me-1" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'stop', 'inca')">Stop</button>
                         <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${incaUuid}', 'restart', 'inca')">Restart</button>
                     `;
-                    actions = actionsInca;
 
                     const incaUrl = `http://${stream.server_user}:${stream.server_pass}@${stream.server_address}/controlpanel?deviceid=1`;
-                    nameHtml = `<a href="${incaUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
+                    nameHtml = `<a href="${incaUrl}" target="_blank" class="text-decoration-none fw-bold">${stream.name}</a>`;
                 } else {
                     statusBadge = stream.status === 'active'
                         ? '<span class="badge bg-success">Active</span>'
@@ -348,21 +309,21 @@ $deviceConfig = [
                     const sid = stream.stream_id || stream.id || '';
 
                     actions = `
-                        <button class="btn btn-sm btn-info text-white" onclick="viewDetails('${stream.server_key}', '${sid}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
-                        <button class="btn btn-sm btn-primary" onclick="streamAction('${stream.server_key}', '${sid}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
-                        <button class="btn btn-sm btn-danger" onclick="streamAction('${stream.server_key}', '${sid}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
+                        <button class="btn btn-sm btn-info text-white me-1" onclick="viewDetails('${stream.server_key}', '${sid}', '${stream.name.replace(/'/g, "\\'")}')">Details</button>
+                        <button class="btn btn-sm btn-primary me-1" onclick="streamAction('${stream.server_key}', '${sid}', 'start')" ${stream.status === 'active' ? 'disabled' : ''}>Start</button>
+                        <button class="btn btn-sm btn-danger me-1" onclick="streamAction('${stream.server_key}', '${sid}', 'stop')" ${stream.status !== 'active' ? 'disabled' : ''}>Stop</button>
                         <button class="btn btn-sm btn-warning" onclick="streamAction('${stream.server_key}', '${sid}', 'restart')">Restart</button>
                     `;
 
                     const streamUrl = `${stream.server_protocol}://${stream.server_address}/encoding/live/${sid}`;
-                    nameHtml = `<a href="${streamUrl}" target="_blank" class="text-decoration-none">${stream.name}</a>`;
+                    nameHtml = `<a href="${streamUrl}" target="_blank" class="text-decoration-none fw-bold">${stream.name}</a>`;
                 }
 
                 const bitrate = stream.bitrate ? (parseInt(stream.bitrate) / 1000000).toFixed(2) + " Mbps" : "-";
                 const errors = stream.errors !== undefined ? stream.errors : "-";
 
                 tr.innerHTML = `
-                    <td class="align-middle fw-bold">${nameHtml}</td>
+                    <td class="align-middle">${nameHtml}</td>
                     <td class="align-middle">${statusBadge}</td>
                     <td class="align-middle">${stream.server_name}</td>
                     <td class="align-middle">${bitrate}</td>
@@ -373,10 +334,12 @@ $deviceConfig = [
             });
         }
 
-        dataTable = $('#streamsTable').DataTable({
-            "pageLength": 25,
-            "order": [[0, "asc"]]
-        });
+        if (typeof $ !== 'undefined' && typeof $.fn.DataTable !== 'undefined') {
+            dataTable = $('#streamsTable').DataTable({
+                "pageLength": 25,
+                "order": [[0, "asc"]]
+            });
+        }
     }
 
     function filterStreams() {
@@ -414,24 +377,6 @@ $deviceConfig = [
         renderTable(allStreamsData);
     }
 
-    async function reloadDevice(key, platform) {
-        updateDeviceUI(key, platform, 'pulling');
-        try {
-            const api = platform === 'bitstreams' ? 'api/list_bitstreams.php' : 'api/list_inca.php';
-            const r = await fetch(`${api}?key=${key}`);
-            const data = await r.json();
-
-            allStreamsData = allStreamsData.filter(s => !(s.server_key === key && s.type === platform));
-            allStreamsData.push(...data);
-
-            updateDeviceUI(key, platform, 'completed', data.length);
-            filterStreams();
-        } catch (e) {
-            updateDeviceUI(key, platform, 'error');
-            console.error(e);
-        }
-    }
-
     async function loadStreams() {
         allStreamsData = [];
 
@@ -445,10 +390,14 @@ $deviceConfig = [
             pullTasks.push((async () => {
                 updateDeviceUI(key, 'bitstreams', 'pulling');
                 try {
-                    const r = await fetch(`api/list_bitstreams.php?key=${key}`);
+                    const r = await fetch(buildApiUrl('list_bitstreams', `key=${key}`));
                     const data = await r.json();
-                    allStreamsData.push(...data);
-                    updateDeviceUI(key, 'bitstreams', 'completed', data.length);
+                    if (Array.isArray(data)) {
+                        allStreamsData.push(...data);
+                        updateDeviceUI(key, 'bitstreams', 'completed', data.length);
+                    } else {
+                        updateDeviceUI(key, 'bitstreams', 'error');
+                    }
                 } catch (e) {
                     updateDeviceUI(key, 'bitstreams', 'error');
                 }
@@ -459,10 +408,14 @@ $deviceConfig = [
             pullTasks.push((async () => {
                 updateDeviceUI(key, 'inca', 'pulling');
                 try {
-                    const r = await fetch(`api/list_inca.php?key=${key}`);
+                    const r = await fetch(buildApiUrl('list_inca', `key=${key}`));
                     const data = await r.json();
-                    allStreamsData.push(...data);
-                    updateDeviceUI(key, 'inca', 'completed', data.length);
+                    if (Array.isArray(data)) {
+                        allStreamsData.push(...data);
+                        updateDeviceUI(key, 'inca', 'completed', data.length);
+                    } else {
+                        updateDeviceUI(key, 'inca', 'error');
+                    }
                 } catch (e) {
                     updateDeviceUI(key, 'inca', 'error');
                 }
@@ -473,8 +426,37 @@ $deviceConfig = [
             await Promise.all(pullTasks);
             filterStreams();
         } catch (e) {
-            const tbody = document.getElementById("streamsTableBody");
-            tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger">Error loading streams: ${e}</td></tr>`;
+            console.error(e);
+        }
+    }
+
+    async function streamAction(serverKey, streamId, actionCmd, type = 'bitstreams') {
+        if (!confirm(`Are you sure you want to ${actionCmd} this ${type} stream?`)) return;
+
+        const form = new FormData();
+        form.append("action", "stream_action");
+        form.append("stream_action", actionCmd);
+        form.append("server_key", serverKey);
+        form.append("stream_id", streamId);
+        form.append("type", type);
+
+        try {
+            const response = await fetch(API_BASE, { method: "POST", body: form });
+            const result = await response.json();
+
+            let bsResponse = {};
+            try {
+                bsResponse = JSON.parse(result.response);
+            } catch(e) {}
+
+            if (result.code >= 200 && result.code < 300 && (bsResponse.err_code === 0 || bsResponse.err_code === undefined)) {
+                alert(`Action ${actionCmd} successful.`);
+                loadStreams();
+            } else {
+                alert("Error: " + (bsResponse.err_message || result.response || "Action failed"));
+            }
+        } catch (e) {
+            alert("Request failed: " + e);
         }
     }
 
@@ -488,7 +470,7 @@ $deviceConfig = [
         detailsModal.show();
 
         try {
-            const response = await fetch(`api/get_stream_details.php?server_key=${serverKey}&stream_id=${streamId}&page=1&limit=50`);
+            const response = await fetch(buildApiUrl('get_stream_details', `server_key=${serverKey}&stream_id=${streamId}&page=1&limit=50`));
             const data = await response.json();
 
             const streamData = data.stream;
@@ -608,7 +590,7 @@ $deviceConfig = [
                 const pane = document.createElement('div');
                 pane.id = tabId;
                 pane.className = 'tab-pane fade dynamic-tab-pane';
-                pane.innerHTML = `<div id="${contentId}" class="inca-html-content"></div>`;
+                pane.innerHTML = `<div id="${contentId}" class="inca-html-content p-3 bg-white border rounded"></div>`;
                 tabContent.appendChild(pane);
             });
         }
@@ -646,16 +628,20 @@ $deviceConfig = [
         const tbody = document.getElementById('incaInstancesBody');
         tbody.innerHTML = "";
 
-        stream.instances.forEach(inst => {
-            const tr = document.createElement("tr");
-            const bitrate = inst.bitrate ? (parseInt(inst.bitrate) / 1000000).toFixed(2) + " Mbps" : "0.00 Mbps";
-            tr.innerHTML = `
-                <td>${inst.stream_id}</td>
-                <td>${bitrate}</td>
-                <td>${inst.errors}</td>
-            `;
-            tbody.appendChild(tr);
-        });
+        if (stream.instances && stream.instances.length > 0) {
+            stream.instances.forEach(inst => {
+                const tr = document.createElement("tr");
+                const bitrate = inst.bitrate ? (parseInt(inst.bitrate) / 1000000).toFixed(2) + " Mbps" : "0.00 Mbps";
+                tr.innerHTML = `
+                    <td>${inst.stream_id}</td>
+                    <td>${bitrate}</td>
+                    <td>${inst.errors}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No SNMP instances active.</td></tr>';
+        }
 
         incaDetailsModal.show();
     }
@@ -665,45 +651,11 @@ $deviceConfig = [
         div.innerHTML = '<div class="text-center p-5"><div class="spinner-border text-primary" role="status"></div><div class="mt-2">Fetching live data...</div></div>';
 
         try {
-            const r = await fetch(`api/get_inca_html.php?server_key=${serverKey}&prog_id=${progId}`);
+            const r = await fetch(buildApiUrl('get_inca_html', `server_key=${serverKey}&prog_id=${progId}`));
             const html = await r.text();
             div.innerHTML = html;
         } catch(e) {
             div.innerHTML = `<div class="alert alert-danger mt-3">Error loading details: ${e}</div>`;
         }
     }
-
-    async function streamAction(serverKey, streamId, actionCmd, type = 'bitstreams') {
-        if (!confirm(`Are you sure you want to ${actionCmd} this ${type} stream?`)) return;
-
-        const form = new FormData();
-        form.append("action", "stream_action");
-        form.append("stream_action", actionCmd);
-        form.append("server_key", serverKey);
-        form.append("stream_id", streamId);
-        form.append("type", type);
-
-        try {
-            const response = await fetch("api/stream_action.php", { method: "POST", body: form });
-            const result = await response.json();
-
-            let bsResponse = {};
-            try {
-                bsResponse = JSON.parse(result.response);
-            } catch(e) {}
-
-            if (result.code >= 200 && result.code < 300 && (bsResponse.err_code === 0 || bsResponse.err_code === undefined)) {
-                alert(`Action ${actionCmd} successful.`);
-                reloadDevice(serverKey, type);
-            } else {
-                alert("Error: " + (bsResponse.err_message || result.response || "Action failed"));
-            }
-        } catch (e) {
-            alert("Request failed: " + e);
-        }
-    }
-
-    window.onload = loadStreams;
 </script>
-</body>
-</html>
