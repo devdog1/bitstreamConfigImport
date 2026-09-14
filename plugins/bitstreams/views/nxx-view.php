@@ -174,15 +174,15 @@ ksort($localCommunities);
                                 $localComm = trim($row['localCallCommunity'] ?? '');
                                 $sw = trim($row['switch'] ?? '');
                             ?>
-                                <tr>
+                                <tr data-region="<?= htmlspecialchars($reg) ?>" data-localcomm="<?= htmlspecialchars($localComm) ?>" data-switch="<?= htmlspecialchars($sw) ?>">
                                     <td class="fw-bold"><?= htmlspecialchars($row['exchange'] ?? '') ?></td>
-                                    <td data-search="<?= htmlspecialchars($reg) ?>" data-filter="<?= htmlspecialchars($reg) ?>"><span class="badge bg-light text-dark border"><?= htmlspecialchars($reg) ?></span></td>
+                                    <td><span class="badge bg-light text-dark border"><?= htmlspecialchars($reg) ?></span></td>
                                     <td><code><?= htmlspecialchars($row['npanxx'] ?? '') ?></code></td>
                                     <td><small class="font-monospace text-muted"><?= htmlspecialchars($row['sipDomain'] ?? '') ?></small></td>
                                     <td><code><?= htmlspecialchars($row['lrn'] ?? '') ?></code></td>
-                                    <td class="fw-bold text-primary" data-search="<?= htmlspecialchars($localComm) ?>" data-filter="<?= htmlspecialchars($localComm) ?>"><?= htmlspecialchars($localComm) ?></td>
+                                    <td class="fw-bold text-primary"><?= htmlspecialchars($localComm) ?></td>
                                     <td><code><?= htmlspecialchars($row['localCallNPAnxx'] ?? '') ?></code></td>
-                                    <td data-search="<?= htmlspecialchars($sw) ?>" data-filter="<?= htmlspecialchars($sw) ?>"><span class="badge bg-info text-dark"><?= htmlspecialchars($sw) ?></span></td>
+                                    <td><span class="badge bg-info text-dark"><?= htmlspecialchars($sw) ?></span></td>
                                     <td><?= htmlspecialchars($row['cfsSubGrp'] ?? '') ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -197,11 +197,59 @@ ksort($localCommunities);
 <script>
 let nxxDataTable = null;
 
+function applyCustomNxxFilter() {
+    if (typeof $ === 'undefined' || typeof $.fn.DataTable === 'undefined') return;
+
+    // Register custom DataTables search function
+    $.fn.dataTable.ext.search.push(function(settings, data, dataIndex, rowData, node) {
+        if (!settings.nTable || settings.nTable.id !== 'nxxTable') {
+            return true;
+        }
+
+        const searchText = ($('#nxxSearch').val() || '').toLowerCase().trim();
+        const selRegion = ($('#filterRegion').val() || '').toLowerCase().trim();
+        const selLocalComm = ($('#filterLocalCommunity').val() || '').toLowerCase().trim();
+        const selSwitch = ($('#filterSwitch').val() || '').toLowerCase().trim();
+
+        const rowEl = $(node);
+        const regVal = (rowEl.attr('data-region') || data[1] || '').toLowerCase().trim();
+        const localCommVal = (rowEl.attr('data-localcomm') || data[5] || '').toLowerCase().trim();
+        const switchVal = (rowEl.attr('data-switch') || data[7] || '').toLowerCase().trim();
+
+        // 1. Region Community Filter
+        if (selRegion && regVal !== selRegion) {
+            return false;
+        }
+
+        // 2. Local Call Community Filter
+        if (selLocalComm && localCommVal !== selLocalComm) {
+            return false;
+        }
+
+        // 3. Switch Filter
+        if (selSwitch && switchVal !== selSwitch) {
+            return false;
+        }
+
+        // 4. Quick Search Filter
+        if (searchText) {
+            const rowFullText = rowEl.text().toLowerCase();
+            if (rowFullText.indexOf(searchText) === -1) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+}
+
 function initNxxTable() {
     if (typeof $ !== 'undefined' && typeof $.fn.DataTable !== 'undefined' && $('#nxxTable').length > 0) {
         if ($.fn.DataTable.isDataTable('#nxxTable')) {
             $('#nxxTable').DataTable().destroy();
         }
+
+        applyCustomNxxFilter();
 
         nxxDataTable = $('#nxxTable').DataTable({
             "order": [[1, "asc"], [5, "asc"]],
@@ -209,45 +257,14 @@ function initNxxTable() {
             "dom": '<"d-flex justify-content-between align-items-center mb-3"l>rtip'
         });
 
-        // Quick search
-        $('#nxxSearch').off('input keyup change clear').on('input keyup change clear', function() {
-            nxxDataTable.search(this.value).draw();
+        // Trigger table redraw on control changes
+        $('#nxxSearch').on('input keyup change clear', function() {
+            nxxDataTable.draw();
             updateCountBadge();
         });
 
-        // Region Filter (Column 1)
-        $('#filterRegion').off('change').on('change', function() {
-            const val = this.value;
-            if (val) {
-                const escaped = $.fn.dataTable.util.escapeRegex(val);
-                nxxDataTable.column(1).search('^' + escaped + '$', true, false).draw();
-            } else {
-                nxxDataTable.column(1).search('').draw();
-            }
-            updateCountBadge();
-        });
-
-        // Local Call Community Filter (Column 5)
-        $('#filterLocalCommunity').off('change').on('change', function() {
-            const val = this.value;
-            if (val) {
-                const escaped = $.fn.dataTable.util.escapeRegex(val);
-                nxxDataTable.column(5).search('^' + escaped + '$', true, false).draw();
-            } else {
-                nxxDataTable.column(5).search('').draw();
-            }
-            updateCountBadge();
-        });
-
-        // Switch Filter (Column 7)
-        $('#filterSwitch').off('change').on('change', function() {
-            const val = this.value;
-            if (val) {
-                const escaped = $.fn.dataTable.util.escapeRegex(val);
-                nxxDataTable.column(7).search('^' + escaped + '$', true, false).draw();
-            } else {
-                nxxDataTable.column(7).search('').draw();
-            }
+        $('#filterRegion, #filterLocalCommunity, #filterSwitch').on('change', function() {
+            nxxDataTable.draw();
             updateCountBadge();
         });
     }
@@ -269,7 +286,7 @@ function resetNxxFilters() {
     document.getElementById('filterSwitch').value = '';
 
     if (nxxDataTable) {
-        nxxDataTable.search('').columns().search('').draw();
+        nxxDataTable.draw();
         updateCountBadge();
     }
 }
