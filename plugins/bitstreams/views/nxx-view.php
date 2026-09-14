@@ -55,6 +55,21 @@ if ($dwPdo) {
         $dbError = $e->getMessage();
     }
 }
+
+// Extract unique filter options for dropdowns
+$regions = [];
+$switches = [];
+$localCommunities = [];
+
+foreach ($nxxData as $row) {
+    if (!empty($row['regionCommunity'])) $regions[$row['regionCommunity']] = true;
+    if (!empty($row['switch'])) $switches[$row['switch']] = true;
+    if (!empty($row['localCallCommunity'])) $localCommunities[$row['localCallCommunity']] = true;
+}
+
+ksort($regions);
+ksort($switches);
+ksort($localCommunities);
 ?>
 
 <div class="container-fluid p-4">
@@ -82,11 +97,55 @@ if ($dwPdo) {
         </div>
     <?php endif; ?>
 
+    <!-- FILTER BAR -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="nxxSearch" class="form-label small fw-bold mb-1"><i class="fa-solid fa-magnifying-glass me-1 text-primary"></i>Quick Search</label>
+                    <input type="text" id="nxxSearch" class="form-control form-control-sm" placeholder="Search Exchange, NPA-NXX, LRN...">
+                </div>
+                <div class="col-md-3">
+                    <label for="filterRegion" class="form-label small fw-bold mb-1"><i class="fa-solid fa-earth-americas me-1 text-info"></i>Region Community</label>
+                    <select id="filterRegion" class="form-select form-select-sm">
+                        <option value="">All Region Communities</option>
+                        <?php foreach (array_keys($regions) as $reg): ?>
+                            <option value="<?= htmlspecialchars($reg) ?>"><?= htmlspecialchars($reg) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="filterLocalCommunity" class="form-label small fw-bold mb-1"><i class="fa-solid fa-city me-1 text-success"></i>Local Call Community</label>
+                    <select id="filterLocalCommunity" class="form-select form-select-sm">
+                        <option value="">All Local Call Communities</option>
+                        <?php foreach (array_keys($localCommunities) as $lc): ?>
+                            <option value="<?= htmlspecialchars($lc) ?>"><?= htmlspecialchars($lc) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="filterSwitch" class="form-label small fw-bold mb-1"><i class="fa-solid fa-server me-1 text-warning"></i>Switch</label>
+                    <select id="filterSwitch" class="form-select form-select-sm">
+                        <option value="">All Switches</option>
+                        <?php foreach (array_keys($switches) as $sw): ?>
+                            <option value="<?= htmlspecialchars($sw) ?>"><?= htmlspecialchars($sw) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button class="btn btn-sm btn-outline-secondary w-100 fw-bold" onclick="resetNxxFilters()" title="Reset Filters">
+                        <i class="fa-solid fa-rotate-left me-1"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- DATA CARD -->
     <div class="card shadow-sm border-0">
         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h6 class="mb-0 fw-bold"><i class="fa-solid fa-list-ol me-2 text-primary"></i>Local Calling Circles (LCG) Table</h6>
-            <span class="badge bg-primary rounded-pill"><?= count($nxxData) ?> records</span>
+            <span class="badge bg-primary rounded-pill" id="recordCountBadge"><?= count($nxxData) ?> records</span>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -132,12 +191,61 @@ if ($dwPdo) {
 </div>
 
 <script>
+let nxxDataTable = null;
+
 document.addEventListener("DOMContentLoaded", () => {
     if (typeof $ !== 'undefined' && typeof $.fn.DataTable !== 'undefined' && $('#nxxTable').length > 0) {
-        $('#nxxTable').DataTable({
+        nxxDataTable = $('#nxxTable').DataTable({
             "order": [[1, "asc"], [5, "asc"]],
-            "pageLength": 25
+            "pageLength": 25,
+            "dom": '<"d-flex justify-content-between align-items-center mb-3"l>rtip'
+        });
+
+        // Quick search
+        $('#nxxSearch').on('keyup change clear', function() {
+            nxxDataTable.search(this.value).draw();
+            updateCountBadge();
+        });
+
+        // Region Filter (Column 1)
+        $('#filterRegion').on('change', function() {
+            const val = $.fn.dataTable.util.escapeRegex(this.value);
+            nxxDataTable.column(1).search(val ? '^' + val + '$' : '', true, false).draw();
+            updateCountBadge();
+        });
+
+        // Local Call Community Filter (Column 5)
+        $('#filterLocalCommunity').on('change', function() {
+            const val = $.fn.dataTable.util.escapeRegex(this.value);
+            nxxDataTable.column(5).search(val ? '^' + val + '$' : '', true, false).draw();
+            updateCountBadge();
+        });
+
+        // Switch Filter (Column 7)
+        $('#filterSwitch').on('change', function() {
+            const val = $.fn.dataTable.util.escapeRegex(this.value);
+            nxxDataTable.column(7).search(val ? '^' + val + '$' : '', true, false).draw();
+            updateCountBadge();
         });
     }
 });
+
+function updateCountBadge() {
+    if (nxxDataTable) {
+        const count = nxxDataTable.rows({ filter: 'applied' }).count();
+        document.getElementById('recordCountBadge').textContent = `${count} records`;
+    }
+}
+
+function resetNxxFilters() {
+    document.getElementById('nxxSearch').value = '';
+    document.getElementById('filterRegion').value = '';
+    document.getElementById('filterLocalCommunity').value = '';
+    document.getElementById('filterSwitch').value = '';
+
+    if (nxxDataTable) {
+        nxxDataTable.search('').columns().search('').draw();
+        updateCountBadge();
+    }
+}
 </script>
