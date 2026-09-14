@@ -14,7 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 $all_streams = [];
 $specific_key = $_GET['key'] ?? null;
 
-$hosts = $CONFIG['inca_hosts'];
+$hosts = bitstreams_get_inca_hosts();
 if ($specific_key) {
     if (isset($hosts[$specific_key])) {
         $hosts = [$specific_key => $hosts[$specific_key]];
@@ -103,6 +103,8 @@ foreach ($hosts as $key => $host) {
             $totalErrors += (int)$inst['errors'];
         }
 
+        $uuidVal = $o['uuid'] ?? $o['id'] ?? '';
+
         $all_streams[] = [
             'stream_id' => "inca_{$key}_" . md5($name),
             'name' => $name,
@@ -117,8 +119,8 @@ foreach ($hosts as $key => $host) {
             'errors' => $totalErrors,
             'instances' => $instances,
             'enriched' => [
-                'lid' => $o['lid'],
-                'uuid' => $o['id'],
+                'lid' => $o['lid'] ?? '',
+                'uuid' => $uuidVal,
                 'source' => $source,
                 'filter' => $o['sourceFilter'] ?? '',
                 'outputs_detailed' => $outputs_detailed

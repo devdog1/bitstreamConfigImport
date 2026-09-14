@@ -1,68 +1,40 @@
 <?php
-require_once 'config.php';
-require_once 'Auth.php';
-require_once 'AzureADSSO.php';
-require_once __DIR__ . '/plugins/bitstreams/models/bitstreams-model.php';
+/**
+ * Bitstreams Plugin INCA Migration View
+ */
 
-$auth = new Auth($CONFIG);
-$auth->requireLogin();
-
-if (!$auth->hasPermission('bitstream.edit') && !$auth->hasPermission('bitstreams_edit')) {
-    http_response_code(403);
-    die("Access Denied: You do not have the 'bitstreams_edit' permission.");
+if (!defined('APP_ROOT') && !class_exists('PluginManager')) {
+    exit;
 }
 
-$incaHosts = bitstreams_get_inca_hosts();
+require_once __DIR__ . '/../models/bitstreams-model.php';
+
 $servers = bitstreams_get_servers();
-$localaddr = bitstreams_get_setting('localaddr', $CONFIG['localaddr'] ?? '172.17.233.130');
-$defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_region'] ?? 'Bitstreams');
+$incaHosts = bitstreams_get_inca_hosts();
+
+$localaddr = bitstreams_get_setting('localaddr', '172.17.233.130');
+$defaultRegion = bitstreams_get_setting('default_region', 'Bitstreams');
+
+$apiUrl = function_exists('url_for') ? url_for('bitstreams_api') : 'index.php?route=bitstreams_api';
 ?>
 
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>INCA Migration Tool</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        pre {
-            background: #212529;
-            color: white;
-            padding: 20px;
-            border-radius: 8px;
-            max-height: 700px;
-            overflow: auto;
-        }
-    </style>
-</head>
-<body class="bg-light">
-
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="index.php">Bitstreams Tool</a>
-        <div class="navbar-nav">
-            <a class="nav-link active" href="index.php">Migration</a>
-            <a class="nav-link" href="overview.php">Overview</a>
-            <a class="nav-link" href="logout.php">Logout (<?= htmlspecialchars($auth->user()['name']) ?>)</a>
-        </div>
-    </div>
-</nav>
-
 <div class="container-fluid p-4">
-    <div class="card">
+    <div class="card shadow-sm border-0 mb-4">
         <div class="card-body">
-            <h2>INCA Migration Tool</h2>
+            <h2><i class="fa-solid fa-file-import text-primary me-2"></i>INCA Migration Tool</h2>
+            <p class="text-muted mb-4">Import XML configurations from INCA devices or files and generate Bitstreams sessions.</p>
+
             <form id="generateForm">
+                <?php if (function_exists('csrf_field')) csrf_field(); ?>
                 <div class="row">
                     <div class="col-md-8">
                         <div class="mb-3">
                             <label for="backup" class="form-label fw-bold">INCA Backup XML Content</label>
-                            <textarea name="backup" id="backup" rows="12" class="form-control"></textarea>
+                            <textarea name="backup" id="backup" rows="12" class="form-control font-monospace" placeholder="Paste INCA Backup XML content here..."></textarea>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card bg-light mb-3">
+                        <div class="card bg-light mb-3 border-0">
                             <div class="card-body">
                                 <label for="inca_host" class="form-label fw-bold">Fetch directly from INCA</label>
                                 <select id="inca_host" class="form-select mb-2">
@@ -71,7 +43,9 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
                                         <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($host['name']) ?> (<?= htmlspecialchars($host['address']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
-                                <button type="button" class="btn btn-outline-secondary w-100 mb-3" onclick="fetchFromInca()" id="fetchIncaBtn">Fetch Backup</button>
+                                <button type="button" class="btn btn-outline-secondary w-100 mb-3" onclick="fetchFromInca()" id="fetchIncaBtn">
+                                    <i class="fa-solid fa-download me-1"></i> Fetch Backup
+                                </button>
 
                                 <hr>
 
@@ -79,7 +53,9 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
                                 <input type="file" name="backup_file" id="backup_file" class="form-control mb-3">
                             </div>
                         </div>
-                        <button type="button" onclick="generateSessions()" id="generateBtn" class="btn btn-primary w-100 p-3 fw-bold">Generate Bitstreams Sessions</button>
+                        <button type="button" onclick="generateSessions()" id="generateBtn" class="btn btn-primary w-100 p-3 fw-bold">
+                            <i class="fa-solid fa-gears me-1"></i> Generate Bitstreams Sessions
+                        </button>
                     </div>
                 </div>
             </form>
@@ -201,15 +177,18 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="submitImport(event)">Create Session</button>
+                <button type="button" class="btn btn-primary fw-bold" onclick="submitImport(event)">Create Session</button>
             </div>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    const API_BASE = "<?= $apiUrl ?>";
     let currentJSON = null;
+    let importModal = null;
+    let sessions = [];
+    let currentTemplates = [];
 
     async function fetchFromInca() {
         const hostKey = document.getElementById("inca_host").value;
@@ -224,13 +203,14 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
         btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Fetching...';
 
         const form = new FormData();
+        form.append("action", "fetch_inca_backup");
         form.append("host_key", hostKey);
 
         try {
-            const response = await fetch("api/fetch_inca_backup.php", { method: "POST", body: form });
+            const response = await fetch(API_BASE, { method: "POST", body: form });
             const result = await response.json();
 
-            if (response.ok) {
+            if (response.ok && result.xml) {
                 document.getElementById("backup").value = result.xml;
                 alert("Backup fetched successfully.");
             } else {
@@ -243,9 +223,6 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
             btn.innerHTML = originalText;
         }
     }
-    let importModal = null;
-    let sessions = [];
-    let currentTemplates = [];
 
     function copyJSON(id) {
         navigator.clipboard.writeText(document.getElementById(id).innerText);
@@ -259,6 +236,7 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
 
         const form = document.getElementById("generateForm");
         const formData = new FormData(form);
+        formData.append("action", "generate");
 
         const serverSelect = document.getElementById("server_select");
         if (serverSelect.value) {
@@ -269,7 +247,7 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
         }
 
         try {
-            const response = await fetch("api/generate.php", { method: "POST", body: formData });
+            const response = await fetch(API_BASE, { method: "POST", body: formData });
             sessions = await response.json();
             renderSessions();
         } catch (e) {
@@ -333,7 +311,7 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
 
             const pre = document.createElement("pre");
             pre.id = `json${i}`;
-            pre.className = "mt-3";
+            pre.className = "mt-3 bg-dark text-white p-3 rounded";
             pre.textContent = session.json;
             pane.appendChild(pre);
 
@@ -461,6 +439,7 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
         templateSelect.innerHTML = "<option>Loading templates...</option>";
 
         let form = new FormData();
+        form.append("action", "templates");
         form.append("server_key", serverKey);
 
         if (serverKey === "custom") {
@@ -471,7 +450,7 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
         }
 
         try {
-            let response = await fetch("api/templates.php", { method: "POST", body: form });
+            let response = await fetch(API_BASE, { method: "POST", body: form });
             let result = await response.json();
 
             let list = [];
@@ -505,7 +484,6 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
 
         let payload = structuredClone(currentJSON);
         let template = parseInt(document.getElementById("template").value);
-        let multicast = document.getElementById("multicast").value;
         let region = document.getElementById("region").value;
         let serverKey = document.getElementById("server_select").value;
         let local_addr = document.getElementById("local_addr").value;
@@ -550,6 +528,7 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
         });
 
         let form = new FormData();
+        form.append("action", "push");
         form.append("server_key", serverKey);
         form.append("payload", JSON.stringify(payload));
 
@@ -561,7 +540,7 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
         }
 
         try {
-            let response = await fetch("api/push.php", { method: "POST", body: form });
+            let response = await fetch(API_BASE, { method: "POST", body: form });
             let result = await response.json();
 
             if (result.code >= 200 && result.code < 300) {
@@ -592,5 +571,3 @@ $defaultRegion = bitstreams_get_setting('default_region', $CONFIG['default_regio
         }
     }
 </script>
-</body>
-</html>

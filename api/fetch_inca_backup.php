@@ -12,14 +12,15 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 }
 
 $host_key = $_POST["host_key"] ?? "";
+$hosts = bitstreams_get_inca_hosts();
 
-if (!isset($CONFIG['inca_hosts'][$host_key])) {
+if (!isset($hosts[$host_key])) {
     http_response_code(400);
     echo json_encode(["error" => "Invalid INCA host"]);
     exit;
 }
 
-$host = $CONFIG['inca_hosts'][$host_key];
+$host = $hosts[$host_key];
 $xml = fetchIncaBackup($host['address'], $host['username'], $host['password']);
 
 if ($xml) {

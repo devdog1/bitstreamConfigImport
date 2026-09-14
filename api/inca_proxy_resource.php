@@ -6,12 +6,14 @@ checkPermission('bitstream.view');
 $serverKey = $_GET['server_key'] ?? '';
 $path = $_GET['path'] ?? '';
 
-if (!$serverKey || !$path || !isset($CONFIG['inca_hosts'][$serverKey])) {
+$hosts = bitstreams_get_inca_hosts();
+
+if (!$serverKey || !$path || !isset($hosts[$serverKey])) {
     http_response_code(400);
     exit;
 }
 
-$host = $CONFIG['inca_hosts'][$serverKey];
+$host = $hosts[$serverKey];
 $url = "http://{$host['address']}/sys/svc/core/api/v1" . $path;
 
 $ch = curl_init();

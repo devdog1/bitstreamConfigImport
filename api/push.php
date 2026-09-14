@@ -16,13 +16,15 @@ $custom_address = $_POST["custom_address"] ?? "";
 $custom_protocol = $_POST["custom_protocol"] ?? "http";
 $payload = $_POST["payload"] ?? "";
 
+$servers = bitstreams_get_servers();
+
 if ($server_key === "custom") {
     $address = $custom_address;
     $protocol = $custom_protocol;
     $tokenId = $_POST["custom_token_id"] ?? "";
     $tokenSecret = $_POST["custom_token_secret"] ?? "";
-} elseif (isset($CONFIG['servers'][$server_key])) {
-    $server = $CONFIG['servers'][$server_key];
+} elseif (isset($servers[$server_key])) {
+    $server = $servers[$server_key];
     $address = $server['address'];
     $protocol = $server['protocol'] ?? 'http';
     $tokenId = $server['token_id'];
@@ -33,6 +35,5 @@ if ($server_key === "custom") {
     exit;
 }
 
-// Added trailing slash to avoid 307 redirects
 $result = apiCall("{$protocol}://{$address}/api/v3/streams/", $tokenId, $tokenSecret, 'POST', $payload);
 echo json_encode($result);

@@ -14,7 +14,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
 $all_streams = [];
 $specific_key = $_GET['key'] ?? null;
 
-$servers = $CONFIG['servers'];
+$servers = bitstreams_get_servers();
 if ($specific_key) {
     if (isset($servers[$specific_key])) {
         $servers = [$specific_key => $servers[$specific_key]];
@@ -32,12 +32,14 @@ foreach ($servers as $key => $server) {
     $streams = fetchAllStreams("{$protocol}://{$address}/api/v3/streams/", $tokenId, $tokenSecret);
 
     foreach ($streams as $stream) {
-        $stream['server_name'] = $server['name'];
-        $stream['server_key'] = $key;
-        $stream['server_protocol'] = $protocol;
-        $stream['server_address'] = $address;
-        $stream['type'] = 'bitstreams';
-        $all_streams[] = $stream;
+        $streamItem = $stream;
+        $streamItem['stream_id'] = $stream['id'] ?? $stream['stream_id'] ?? '';
+        $streamItem['server_name'] = $server['name'];
+        $streamItem['server_key'] = $key;
+        $streamItem['server_protocol'] = $protocol;
+        $streamItem['server_address'] = $address;
+        $streamItem['type'] = 'bitstreams';
+        $all_streams[] = $streamItem;
     }
 }
 

@@ -10,13 +10,15 @@ $streamId = $_GET['stream_id'] ?? '';
 $page = $_GET['page'] ?? 1;
 $limit = $_GET['limit'] ?? 25;
 
-if (!$serverKey || !$streamId || !isset($CONFIG['servers'][$serverKey])) {
+$servers = bitstreams_get_servers();
+
+if (!$serverKey || !$streamId || !isset($servers[$serverKey])) {
     http_response_code(400);
     echo json_encode(["error" => "Missing or invalid parameters"]);
     exit;
 }
 
-$server = $CONFIG['servers'][$serverKey];
+$server = $servers[$serverKey];
 $address = $server['address'];
 $protocol = $server['protocol'] ?? 'http';
 $tokenId = $server['token_id'];
