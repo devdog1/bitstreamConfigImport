@@ -26,7 +26,7 @@ PluginManager::getInstance()->addFilter('theme_nav_links', function ($links) {
             ['label' => 'INCA Migration Tool', 'icon' => 'fa-solid fa-file-import', 'route' => 'bitstreams_migration', 'permission' => 'bitstreams_edit'],
             ['label' => 'DAC Digital EIA Grid', 'icon' => 'fa-solid fa-table-cells', 'route' => 'bitstreams_dac_eia_grid', 'permission' => 'bitstreams_view'],
             ['label' => 'Video URL Manager', 'icon' => 'fa-solid fa-link', 'route' => 'bitstreams_video_links', 'permission' => 'bitstreams_view'],
-            ['label' => 'Voice URL Dashboard', 'icon' => 'fa-solid fa-phone-volume', 'route' => 'bitstreams_voice_links', 'permission' => 'voiceLinks_view'],
+            ['label' => 'Voice URL Dashboard', 'icon' => 'fa-solid fa-phone-volume', 'route' => 'bitstreams_voice_links', 'permission' => 'bitstreams_view'],
             ['label' => 'Plugin Settings', 'icon' => 'fa-solid fa-sliders', 'route' => 'bitstreams_settings', 'permission' => 'bitstreams_settings']
         ]
     ];
