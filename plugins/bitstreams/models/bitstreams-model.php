@@ -53,6 +53,39 @@ if (!function_exists('bitstreams_get_pdo')) {
     }
 }
 
+if (!function_exists('bitstreams_get_dw_pdo')) {
+    function bitstreams_get_dw_pdo() {
+        static $dwPdo = null;
+        if ($dwPdo === null) {
+            $host = bitstreams_get_setting('dw_dbhost', '127.0.0.1');
+            $user = bitstreams_get_setting('dw_dbuser', 'dw_user');
+            $pass = bitstreams_get_setting('dw_dbpass', '');
+            if ($host) {
+                try {
+                    $dsn = "mysql:host={$host};dbname=cdr;charset=utf8mb4";
+                    $dwPdo = new PDO($dsn, $user, $pass, [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::ATTR_TIMEOUT => 5
+                    ]);
+                } catch (Exception $e) {
+                    try {
+                        $dsn = "mysql:host={$host};charset=utf8mb4";
+                        $dwPdo = new PDO($dsn, $user, $pass, [
+                            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                            PDO::ATTR_TIMEOUT => 5
+                        ]);
+                    } catch (Exception $ex) {
+                        return null;
+                    }
+                }
+            }
+        }
+        return $dwPdo;
+    }
+}
+
 if (!function_exists('bitstreams_ensure_tables')) {
     function bitstreams_ensure_tables() {
         static $ensured = false;

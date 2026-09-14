@@ -27,6 +27,7 @@ PluginManager::getInstance()->addFilter('theme_nav_links', function ($links) {
             ['label' => 'DAC Digital EIA Grid', 'icon' => 'fa-solid fa-table-cells', 'route' => 'bitstreams_dac_eia_grid', 'permission' => 'bitstreams_view'],
             ['label' => 'Video URL Manager', 'icon' => 'fa-solid fa-link', 'route' => 'bitstreams_video_links', 'permission' => 'bitstreams_view'],
             ['label' => 'Voice URL Dashboard', 'icon' => 'fa-solid fa-phone-volume', 'route' => 'bitstreams_voice_links', 'permission' => 'bitstreams_view'],
+            ['label' => 'Telephony NXX', 'icon' => 'fa-solid fa-phone-nodes', 'route' => 'bitstreams_nxx', 'permission' => 'bitstreams_view'],
             ['label' => 'Plugin Settings', 'icon' => 'fa-solid fa-sliders', 'route' => 'bitstreams_settings', 'permission' => 'bitstreams_settings']
         ]
     ];
@@ -67,6 +68,13 @@ PluginManager::getInstance()->registerRoute('bitstreams_voice_links', function (
         die("Access Denied: Missing voice links view permission.");
     }
     require_once __DIR__ . '/views/voice-links-view.php';
+});
+
+PluginManager::getInstance()->registerRoute('bitstreams_nxx', function () {
+    if (function_exists('has_permission') && !has_permission('bitstreams_view')) {
+        die("Access Denied: Missing 'bitstreams_view' permission.");
+    }
+    require_once __DIR__ . '/views/nxx-view.php';
 });
 
 PluginManager::getInstance()->registerRoute('bitstreams_settings', function () {
