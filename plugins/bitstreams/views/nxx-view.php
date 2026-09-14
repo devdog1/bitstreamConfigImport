@@ -62,9 +62,9 @@ $switches = [];
 $localCommunities = [];
 
 foreach ($nxxData as $row) {
-    if (!empty($row['regionCommunity'])) $regions[$row['regionCommunity']] = true;
-    if (!empty($row['switch'])) $switches[$row['switch']] = true;
-    if (!empty($row['localCallCommunity'])) $localCommunities[$row['localCallCommunity']] = true;
+    if (!empty($row['regionCommunity'])) $regions[trim($row['regionCommunity'])] = true;
+    if (!empty($row['switch'])) $switches[trim($row['switch'])] = true;
+    if (!empty($row['localCallCommunity'])) $localCommunities[trim($row['localCallCommunity'])] = true;
 }
 
 ksort($regions);
@@ -169,16 +169,20 @@ ksort($localCommunities);
                                 <td colspan="9" class="text-center py-4 text-muted">No NXX records retrieved or database unavailable.</td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($nxxData as $row): ?>
+                            <?php foreach ($nxxData as $row):
+                                $reg = trim($row['regionCommunity'] ?? '');
+                                $localComm = trim($row['localCallCommunity'] ?? '');
+                                $sw = trim($row['switch'] ?? '');
+                            ?>
                                 <tr>
                                     <td class="fw-bold"><?= htmlspecialchars($row['exchange'] ?? '') ?></td>
-                                    <td><span class="badge bg-light text-dark border"><?= htmlspecialchars($row['regionCommunity'] ?? '') ?></span></td>
+                                    <td data-search="<?= htmlspecialchars($reg) ?>" data-filter="<?= htmlspecialchars($reg) ?>"><span class="badge bg-light text-dark border"><?= htmlspecialchars($reg) ?></span></td>
                                     <td><code><?= htmlspecialchars($row['npanxx'] ?? '') ?></code></td>
                                     <td><small class="font-monospace text-muted"><?= htmlspecialchars($row['sipDomain'] ?? '') ?></small></td>
                                     <td><code><?= htmlspecialchars($row['lrn'] ?? '') ?></code></td>
-                                    <td class="fw-bold text-primary"><?= htmlspecialchars($row['localCallCommunity'] ?? '') ?></td>
+                                    <td class="fw-bold text-primary" data-search="<?= htmlspecialchars($localComm) ?>" data-filter="<?= htmlspecialchars($localComm) ?>"><?= htmlspecialchars($localComm) ?></td>
                                     <td><code><?= htmlspecialchars($row['localCallNPAnxx'] ?? '') ?></code></td>
-                                    <td><span class="badge bg-info text-dark"><?= htmlspecialchars($row['switch'] ?? '') ?></span></td>
+                                    <td data-search="<?= htmlspecialchars($sw) ?>" data-filter="<?= htmlspecialchars($sw) ?>"><span class="badge bg-info text-dark"><?= htmlspecialchars($sw) ?></span></td>
                                     <td><?= htmlspecialchars($row['cfsSubGrp'] ?? '') ?></td>
                                 </tr>
                             <?php endforeach; ?>
@@ -193,8 +197,12 @@ ksort($localCommunities);
 <script>
 let nxxDataTable = null;
 
-document.addEventListener("DOMContentLoaded", () => {
+function initNxxTable() {
     if (typeof $ !== 'undefined' && typeof $.fn.DataTable !== 'undefined' && $('#nxxTable').length > 0) {
+        if ($.fn.DataTable.isDataTable('#nxxTable')) {
+            $('#nxxTable').DataTable().destroy();
+        }
+
         nxxDataTable = $('#nxxTable').DataTable({
             "order": [[1, "asc"], [5, "asc"]],
             "pageLength": 25,
@@ -202,33 +210,50 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         // Quick search
-        $('#nxxSearch').on('keyup change clear', function() {
+        $('#nxxSearch').off('input keyup change clear').on('input keyup change clear', function() {
             nxxDataTable.search(this.value).draw();
             updateCountBadge();
         });
 
         // Region Filter (Column 1)
-        $('#filterRegion').on('change', function() {
-            const val = $.fn.dataTable.util.escapeRegex(this.value);
-            nxxDataTable.column(1).search(val ? '^' + val + '$' : '', true, false).draw();
+        $('#filterRegion').off('change').on('change', function() {
+            const val = this.value;
+            if (val) {
+                const escaped = $.fn.dataTable.util.escapeRegex(val);
+                nxxDataTable.column(1).search('^' + escaped + '$', true, false).draw();
+            } else {
+                nxxDataTable.column(1).search('').draw();
+            }
             updateCountBadge();
         });
 
         // Local Call Community Filter (Column 5)
-        $('#filterLocalCommunity').on('change', function() {
-            const val = $.fn.dataTable.util.escapeRegex(this.value);
-            nxxDataTable.column(5).search(val ? '^' + val + '$' : '', true, false).draw();
+        $('#filterLocalCommunity').off('change').on('change', function() {
+            const val = this.value;
+            if (val) {
+                const escaped = $.fn.dataTable.util.escapeRegex(val);
+                nxxDataTable.column(5).search('^' + escaped + '$', true, false).draw();
+            } else {
+                nxxDataTable.column(5).search('').draw();
+            }
             updateCountBadge();
         });
 
         // Switch Filter (Column 7)
-        $('#filterSwitch').on('change', function() {
-            const val = $.fn.dataTable.util.escapeRegex(this.value);
-            nxxDataTable.column(7).search(val ? '^' + val + '$' : '', true, false).draw();
+        $('#filterSwitch').off('change').on('change', function() {
+            const val = this.value;
+            if (val) {
+                const escaped = $.fn.dataTable.util.escapeRegex(val);
+                nxxDataTable.column(7).search('^' + escaped + '$', true, false).draw();
+            } else {
+                nxxDataTable.column(7).search('').draw();
+            }
             updateCountBadge();
         });
     }
-});
+}
+
+document.addEventListener("DOMContentLoaded", initNxxTable);
 
 function updateCountBadge() {
     if (nxxDataTable) {
