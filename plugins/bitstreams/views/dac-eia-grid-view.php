@@ -94,7 +94,7 @@ if (is_array($services)) {
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2><i class="fa-solid fa-table-cells text-primary me-2"></i>DAC Digital EIA Grid</h2>
-            <p class="text-muted mb-0">Showing <strong><?= htmlspecialchars($vcmName) ?></strong> Channel Lineup from DAC Host: <code><?= htmlspecialchars($dacqueryAddress) ?></code></p>
+            <p class="text-muted mb-0">Showing <strong><?= htmlspecialchars($vcmName) ?></strong> Channel Lineup</p>
         </div>
         <div>
             <div class="btn-group" role="group">

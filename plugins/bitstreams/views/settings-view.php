@@ -14,6 +14,10 @@ $defaultTemplateId = bitstreams_get_setting('default_template_id', '13');
 $defaultRegion = bitstreams_get_setting('default_region', 'Bitstreams');
 $dacqueryAddress = bitstreams_get_setting('dacqueryAddress', '127.0.0.1');
 
+$dwDbHost = bitstreams_get_setting('dw_dbhost', '127.0.0.1');
+$dwDbUser = bitstreams_get_setting('dw_dbuser', 'dw_user');
+$dwDbPass = bitstreams_get_setting('dw_dbpass', '');
+
 $servers = bitstreams_get_servers();
 $incaHosts = bitstreams_get_inca_hosts();
 
@@ -24,14 +28,14 @@ $apiUrl = function_exists('url_for') ? url_for('bitstreams_api') : 'index.php?ro
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2><i class="fa-solid fa-sliders text-primary me-2"></i>Bitstreams Plugin Settings</h2>
-            <p class="text-muted mb-0">Manage global settings, Bitstreams Edge servers, and INCA host configurations stored in database tables.</p>
+            <p class="text-muted mb-0">Manage global settings, DataWarehouse database credentials, Bitstreams Edge servers, and INCA host configurations.</p>
         </div>
     </div>
 
     <!-- Global Settings Form -->
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3">
-            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-gear me-2 text-secondary"></i>Global Configuration</h5>
+            <h5 class="mb-0 fw-bold"><i class="fa-solid fa-gear me-2 text-secondary"></i>Global & System Configuration</h5>
         </div>
         <div class="card-body">
             <form id="globalSettingsForm" onsubmit="saveGlobalSettings(event)">
@@ -58,7 +62,28 @@ $apiUrl = function_exists('url_for') ? url_for('bitstreams_api') : 'index.php?ro
                         <div class="form-text">DAC STB API Address or Host</div>
                     </div>
                 </div>
-                <div class="mt-3 text-end">
+
+                <hr class="my-4">
+                <h6 class="fw-bold mb-3"><i class="fa-solid fa-database text-info me-2"></i>DataWarehouse Database Configuration (Voice Systems)</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label for="dw_dbhost" class="form-label fw-bold">DataWarehouse DB Host</label>
+                        <input type="text" class="form-control" id="dw_dbhost" name="dw_dbhost" value="<?= htmlspecialchars($dwDbHost) ?>" required>
+                        <div class="form-text">CDR / DataWarehouse MySQL Host</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="dw_dbuser" class="form-label fw-bold">DataWarehouse DB User</label>
+                        <input type="text" class="form-control" id="dw_dbuser" name="dw_dbuser" value="<?= htmlspecialchars($dwDbUser) ?>" required>
+                        <div class="form-text">Database Username</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="dw_dbpass" class="form-label fw-bold">DataWarehouse DB Password</label>
+                        <input type="password" class="form-control" id="dw_dbpass" name="dw_dbpass" value="<?= htmlspecialchars($dwDbPass) ?>">
+                        <div class="form-text">Database Password</div>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-end">
                     <button type="submit" class="btn btn-primary fw-bold" id="saveGlobalBtn">
                         <i class="fa-solid fa-floppy-disk me-1"></i> Save Global Settings
                     </button>

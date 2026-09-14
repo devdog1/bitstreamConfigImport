@@ -626,7 +626,11 @@ switch ($action) {
             'settings' => [
                 'localaddr' => bitstreams_get_setting('localaddr', '172.17.233.130'),
                 'default_template_id' => bitstreams_get_setting('default_template_id', '13'),
-                'default_region' => bitstreams_get_setting('default_region', 'Bitstreams')
+                'default_region' => bitstreams_get_setting('default_region', 'Bitstreams'),
+                'dacqueryAddress' => bitstreams_get_setting('dacqueryAddress', ''),
+                'dw_dbhost' => bitstreams_get_setting('dw_dbhost', ''),
+                'dw_dbuser' => bitstreams_get_setting('dw_dbuser', ''),
+                'dw_dbpass' => bitstreams_get_setting('dw_dbpass', '')
             ],
             'servers' => bitstreams_get_servers(),
             'inca_hosts' => bitstreams_get_inca_hosts()
@@ -641,6 +645,10 @@ switch ($action) {
         if (isset($_POST['localaddr'])) bitstreams_set_setting('localaddr', trim($_POST['localaddr']));
         if (isset($_POST['default_template_id'])) bitstreams_set_setting('default_template_id', trim($_POST['default_template_id']));
         if (isset($_POST['default_region'])) bitstreams_set_setting('default_region', trim($_POST['default_region']));
+        if (isset($_POST['dacqueryAddress'])) bitstreams_set_setting('dacqueryAddress', trim($_POST['dacqueryAddress']));
+        if (isset($_POST['dw_dbhost'])) bitstreams_set_setting('dw_dbhost', trim($_POST['dw_dbhost']));
+        if (isset($_POST['dw_dbuser'])) bitstreams_set_setting('dw_dbuser', trim($_POST['dw_dbuser']));
+        if (isset($_POST['dw_dbpass'])) bitstreams_set_setting('dw_dbpass', trim($_POST['dw_dbpass']));
 
         if (function_exists('log_action')) {
             log_action('BITSTREAMS_SETTINGS_UPDATE', $_POST);
@@ -783,6 +791,52 @@ switch ($action) {
         } else {
             http_response_code(400);
             echo json_encode(["error" => "Missing video link ID"]);
+        }
+        exit;
+
+    /* =========================================================
+     * 5. VOICE LINKS ENDPOINTS
+     * ========================================================= */
+
+    case 'get_voice_links':
+        checkPluginPermission('bitstreams_view');
+        header('Content-Type: application/json');
+        echo json_encode(bitstreams_get_voice_links());
+        exit;
+
+    case 'save_voice_link':
+        checkPluginPermission('bitstreams_edit');
+        verifyCsrfIfPost();
+        header('Content-Type: application/json');
+
+        $res = bitstreams_save_voice_link([
+            'id'       => $_POST['id'] ?? null,
+            'category' => $_POST['category'] ?? '',
+            'device'   => $_POST['device'] ?? '',
+            'purpose'  => $_POST['purpose'] ?? '',
+            'url'      => $_POST['url'] ?? ''
+        ]);
+
+        if ($res) {
+            echo json_encode(["success" => true, "message" => "Voice link saved successfully"]);
+        } else {
+            http_response_code(400);
+            echo json_encode(["error" => "Failed to save voice link. Check required fields."]);
+        }
+        exit;
+
+    case 'delete_voice_link':
+        checkPluginPermission('bitstreams_edit');
+        verifyCsrfIfPost();
+        header('Content-Type: application/json');
+
+        $id = $_POST['id'] ?? $_GET['id'] ?? null;
+        if ($id) {
+            bitstreams_delete_voice_link($id);
+            echo json_encode(["success" => true, "message" => "Voice link deleted successfully"]);
+        } else {
+            http_response_code(400);
+            echo json_encode(["error" => "Missing voice link ID"]);
         }
         exit;
 
