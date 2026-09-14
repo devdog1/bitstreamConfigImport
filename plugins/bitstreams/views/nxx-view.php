@@ -28,16 +28,25 @@ if ($dwPdo) {
     try {
         $sql = "
             SELECT
-                p.npa,
-                p.nxx,
-                p.town_name,
-                p.lcg_id,
-                l.lcg_name,
-                l.province
-            FROM cdr.lcgPrefixData p
-            LEFT JOIN cdr.lcgLookupParameters l ON p.lcg_id = l.lcg_id
-            ORDER BY p.npa ASC, p.nxx ASC, p.town_name ASC
-            LIMIT 1000
+                nn.exchange,
+                nn.regionCommunity,
+                CONCAT(nn.npa, '-', nn.nxx) AS npanxx,
+                lp.sipDomain,
+                lp.lrn,
+                lcd.community AS localCallCommunity,
+                CONCAT(lcd.npa, '-', lcd.nxx) AS localCallNPAnxx,
+                lp.switch,
+                lp.cfsSubGrp
+            FROM cdr.lcgLookupParameters lp
+            LEFT JOIN cdr.lcgPrefixData pd
+                ON pd.lookupParameterId = lp.id
+                AND pd.reportDateTime = (
+                    SELECT MAX(reportDateTime)
+                    FROM cdr.lcgPrefixData
+                )
+            LEFT JOIN cdr.lcgNPANXX nn ON nn.lcgPrefixDataId = pd.id
+            LEFT JOIN cdr.lcgLocalCallingDestinations lcd ON lcd.lcgNPANXXid = nn.id
+            ORDER BY nn.regionCommunity, lcd.community, lcd.npa, lcd.nxx
         ";
         $stmt = $dwPdo->query($sql);
         $nxxData = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -53,7 +62,7 @@ if ($dwPdo) {
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2><i class="fa-solid fa-phone-nodes text-primary me-2"></i>Telephony NXX & Local Calling Circles</h2>
-            <p class="text-muted mb-0">Query NPA-NXX rate centers, towns, and local calling group (LCG) mappings from DataWarehouse.</p>
+            <p class="text-muted mb-0">Query NPA-NXX exchanges, region communities, local calling destinations, switches, and SIP domains from DataWarehouse.</p>
         </div>
         <div>
             <a href="<?= function_exists('url_for') ? url_for('bitstreams_settings') : 'index.php?route=bitstreams_settings' ?>" class="btn btn-outline-secondary btn-sm fw-bold">
@@ -76,7 +85,7 @@ if ($dwPdo) {
     <!-- DATA CARD -->
     <div class="card shadow-sm border-0">
         <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-            <h6 class="mb-0 fw-bold"><i class="fa-solid fa-list-ol me-2 text-primary"></i>NPA-NXX Prefix Mapping Table</h6>
+            <h6 class="mb-0 fw-bold"><i class="fa-solid fa-list-ol me-2 text-primary"></i>Local Calling Circles (LCG) Table</h6>
             <span class="badge bg-primary rounded-pill"><?= count($nxxData) ?> records</span>
         </div>
         <div class="card-body">
@@ -84,28 +93,34 @@ if ($dwPdo) {
                 <table class="table table-hover align-middle mb-0" id="nxxTable">
                     <thead class="table-light">
                         <tr>
-                            <th>NPA</th>
-                            <th>NXX</th>
-                            <th>Town Name</th>
-                            <th>LCG ID</th>
-                            <th>LCG Name</th>
-                            <th>Province / Region</th>
+                            <th>Exchange</th>
+                            <th>Region Community</th>
+                            <th>NPA-NXX</th>
+                            <th>SIP Domain</th>
+                            <th>LRN</th>
+                            <th>Local Call Community</th>
+                            <th>Local Call NPA-NXX</th>
+                            <th>Switch</th>
+                            <th>CFS SubGrp</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($nxxData)): ?>
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">No NXX records retrieved or database unavailable.</td>
+                                <td colspan="9" class="text-center py-4 text-muted">No NXX records retrieved or database unavailable.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($nxxData as $row): ?>
                                 <tr>
-                                    <td><code><?= htmlspecialchars($row['npa'] ?? '') ?></code></td>
-                                    <td><code><?= htmlspecialchars($row['nxx'] ?? '') ?></code></td>
-                                    <td class="fw-bold"><?= htmlspecialchars($row['town_name'] ?? '') ?></td>
-                                    <td><span class="badge bg-light text-dark border"><?= htmlspecialchars($row['lcg_id'] ?? 'N/A') ?></span></td>
-                                    <td><?= htmlspecialchars($row['lcg_name'] ?? 'Default Group') ?></td>
-                                    <td><?= htmlspecialchars($row['province'] ?? 'MB') ?></td>
+                                    <td class="fw-bold"><?= htmlspecialchars($row['exchange'] ?? '') ?></td>
+                                    <td><span class="badge bg-light text-dark border"><?= htmlspecialchars($row['regionCommunity'] ?? '') ?></span></td>
+                                    <td><code><?= htmlspecialchars($row['npanxx'] ?? '') ?></code></td>
+                                    <td><small class="font-monospace text-muted"><?= htmlspecialchars($row['sipDomain'] ?? '') ?></small></td>
+                                    <td><code><?= htmlspecialchars($row['lrn'] ?? '') ?></code></td>
+                                    <td class="fw-bold text-primary"><?= htmlspecialchars($row['localCallCommunity'] ?? '') ?></td>
+                                    <td><code><?= htmlspecialchars($row['localCallNPAnxx'] ?? '') ?></code></td>
+                                    <td><span class="badge bg-info text-dark"><?= htmlspecialchars($row['switch'] ?? '') ?></span></td>
+                                    <td><?= htmlspecialchars($row['cfsSubGrp'] ?? '') ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -120,7 +135,7 @@ if ($dwPdo) {
 document.addEventListener("DOMContentLoaded", () => {
     if (typeof $ !== 'undefined' && typeof $.fn.DataTable !== 'undefined' && $('#nxxTable').length > 0) {
         $('#nxxTable').DataTable({
-            "order": [[0, "asc"], [1, "asc"]],
+            "order": [[1, "asc"], [5, "asc"]],
             "pageLength": 25
         });
     }
